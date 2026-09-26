@@ -76,16 +76,45 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
             <Award style={{ width: 22, height: 22, color: '#3c3c3c' }} />
           </div>
           <div>
-            <h2
-              className="font-display font-bold text-white"
-              style={{ fontSize: 17, lineHeight: 1.2 }}
-            >
-              Álbum de Cartas
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2
+                className="font-display font-bold text-white"
+                style={{ fontSize: 17, lineHeight: 1.2 }}
+              >
+                Álbum de Cartas
+              </h2>
+              <span
+                className="font-display font-bold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide inline-block"
+                style={{ background: '#ffc800', color: '#3c3c3c' }}
+              >
+                Próximamente
+              </span>
+            </div>
             <p style={{ fontSize: 12, color: '#afafaf' }}>
-              {unlockedBadgeIds.length} de 4 desbloqueadas
+              Coleccionables de patriarcas y Jesucristo
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* ── Banner Informativo Próximamente ── */}
+      <div
+        className="mx-3 mt-3 p-3.5 rounded-2xl flex items-start gap-3 border-2 border-[#fed7aa] shrink-0 shadow-sm"
+        style={{ background: '#fff7ed' }}
+      >
+        <div className="w-10 h-10 rounded-xl bg-[#ffedd5] flex items-center justify-center shrink-0 text-xl border border-[#fed7aa]">
+          ⏳
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Sparkles className="w-4 h-4 text-[#ea580c]" />
+            <p className="font-display font-bold text-sm text-[#9a3412]">
+              ¡Colección de Cartas — Próximamente!
+            </p>
+          </div>
+          <p className="text-xs text-[#c2410c] leading-relaxed">
+            Esta sección estará disponible muy pronto. Continúa manteniendo tu racha de lectura diaria para que estés listo para recibir tus cartas exclusivas de patriarcas y la carta dorada de Jesucristo.
+          </p>
         </div>
       </div>
 

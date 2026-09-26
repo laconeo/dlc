@@ -75,7 +75,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     strokeWidth: isActive ? 2.5 : 2,
                   }}
                 />
-                {showBadge && (
+                {id === 'cards' && (
+                  <span
+                    className="absolute -top-2 -right-3.5 px-1 py-0.5 rounded-full text-white font-display font-bold leading-none border border-white uppercase"
+                    style={{ fontSize: 7, backgroundColor: '#ff9600' }}
+                  >
+                    Próx.
+                  </span>
+                )}
+                {showBadge && id !== 'cards' && (
                   <span
                     className="absolute -top-1.5 -right-2 w-5 h-5 rounded-full text-white flex items-center justify-center font-bold border-2 border-white"
                     style={{ fontSize: 10, backgroundColor: '#ff4b4b' }}

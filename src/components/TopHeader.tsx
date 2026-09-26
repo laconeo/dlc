@@ -46,10 +46,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             onClick={onOpenBadges}
             className="pill-duo border-[#a560f0] bg-[#f5eeff] active:scale-95 transition-transform"
             style={{ color: '#a560f0' }}
-            title="Ver Cartas coleccionables"
+            title="Ver Cartas coleccionables (Próximamente)"
           >
             <Award className="w-5 h-5" />
-            <span className="text-base font-display font-bold">{badgesCount}/4</span>
+            <span className="text-[11px] font-display font-bold px-1.5 py-0.5 rounded-full bg-[#a560f0] text-white uppercase tracking-tight">Próx.</span>
           </button>
 
           {/* Días leídos */}

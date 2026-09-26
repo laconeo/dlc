@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Mail, Award, BookOpen, Share2, LogOut, Shield, MapPin, ArrowLeft } from 'lucide-react';
-import { Student } from '../types';
+import { Student, isUserInstructor, SUPERADMIN_EMAIL } from '../types';
 import { SPECIAL_BADGES } from '../data/readings';
 
 interface StudentProfileModalProps {
@@ -22,6 +22,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const isInstructor = isUserInstructor(student);
+  const isSuperAdmin = (student?.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
   const completedDays = student?.completedDays || [];
   const currentStreak = student?.currentStreak || 0;
   const highestStreak = student?.highestStreak || 0;
@@ -74,15 +76,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </button>
           {/* Avatar */}
           <div
-            className="mx-auto mb-3 font-display font-bold text-white flex items-center justify-center"
+            className="mx-auto mb-3 font-display font-bold text-white flex items-center justify-center shadow-md"
             style={{
               width: 80,
               height: 80,
               borderRadius: '50%',
-              background: '#ffc800',
-              border: '4px solid rgba(255,255,255,0.4)',
+              background: isInstructor ? '#3c3c3c' : '#ffc800',
+              border: `4px solid ${isInstructor ? '#ffc800' : 'rgba(255,255,255,0.5)'}`,
               fontSize: 36,
-              color: '#3c3c3c',
+              color: isInstructor ? '#ffc800' : '#3c3c3c',
             }}
           >
             {student?.name ? student.name.charAt(0).toUpperCase() : <User style={{ width: 40, height: 40 }} />}
@@ -103,8 +105,23 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <span>{student?.email || '—'}</span>
           </div>
 
-          {/* Ward + Seminary Class pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+          {/* Role + Ward + Seminary Class pills */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5">
+            {/* Role pill */}
+            <span
+              className="inline-flex items-center gap-1.5 font-display font-bold rounded-full px-3"
+              style={{
+                fontSize: 12,
+                color: isInstructor ? '#ffc800' : '#ffffff',
+                background: isInstructor ? '#222222' : 'rgba(255,255,255,0.22)',
+                border: `2px solid ${isInstructor ? '#ffc800' : 'rgba(255,255,255,0.4)'}`,
+                height: 28,
+              }}
+            >
+              <Shield style={{ width: 13, height: 13 }} />
+              {isSuperAdmin ? 'Superadministrador' : isInstructor ? 'Instructor' : 'Alumno'}
+            </span>
+
             {student?.ward && (
               <span
                 className="inline-flex items-center gap-1.5 font-bold rounded-full px-3"
@@ -261,25 +278,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <span>Compartir mi Racha en WhatsApp</span>
             </button>
 
-            {/* Instructor panel */}
-            <button
-              onClick={onOpenAdmin}
-              className="font-display w-full flex items-center justify-center gap-2"
-              style={{
-                height: 52,
-                borderRadius: 16,
-                fontSize: 15,
-                fontWeight: 700,
-                background: '#3c3c3c',
-                borderBottom: '4px solid #222222',
-                color: '#ffc800',
-                cursor: 'pointer',
-                transition: 'all 0.1s ease',
-              }}
-            >
-              <Shield style={{ width: 20, height: 20 }} />
-              <span>Panel de Instructor</span>
-            </button>
+            {/* Instructor panel (solo para instructores) */}
+            {isInstructor && (
+              <button
+                onClick={onOpenAdmin}
+                className="font-display w-full flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                style={{
+                  height: 52,
+                  borderRadius: 16,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  background: '#3c3c3c',
+                  borderBottom: '4px solid #222222',
+                  color: '#ffc800',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                }}
+              >
+                <Shield style={{ width: 20, height: 20 }} />
+                <span>Panel de Instructor</span>
+              </button>
+            )}
 
             {/* Logout */}
             <button

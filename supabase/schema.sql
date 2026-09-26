@@ -23,6 +23,7 @@ create table if not exists public.students (
   last_name        text        not null,
   -- full name kept as a generated column for convenience
   name             text        generated always as (first_name || ' ' || last_name) stored,
+  role             text        not null default 'alumno' check (role in ('alumno', 'instructor')),
   ward             text        not null default '',
   seminary_class   text        not null default 'Seminario - Antiguo Testamento',
   avatar_seed      text,
@@ -201,6 +202,16 @@ create policy "students: instructor read all"
     )
   );
 
+-- Instructors can update student profiles / roles
+create policy "students: instructor update"
+  on public.students for update
+  using (
+    exists (
+      select 1 from public.instructors
+      where instructors.user_id = auth.uid()
+    )
+  );
+
 create policy "completed_days: instructor read all"
   on public.student_completed_days for select
   using (
@@ -221,6 +232,24 @@ create policy "notes: instructor read all"
 
 create policy "badges: instructor read all"
   on public.student_unlocked_badges for select
+  using (
+    exists (
+      select 1 from public.instructors
+      where instructors.user_id = auth.uid()
+    )
+  );
+
+-- Instructors table RLS
+alter table public.instructors enable row level security;
+
+create policy "instructors: read authenticated"
+  on public.instructors for select
+  to authenticated
+  using (true);
+
+create policy "instructors: manage instructors"
+  on public.instructors for all
+  to authenticated
   using (
     exists (
       select 1 from public.instructors
@@ -262,6 +291,7 @@ select
   s.first_name,
   s.last_name,
   s.name,
+  s.role,
   s.ward,
   s.seminary_class,
   s.avatar_seed,

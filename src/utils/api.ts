@@ -8,7 +8,7 @@
  */
 
 import { supabase } from './supabase';
-import { Student, InstructorStats } from '../types';
+import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
 
 // ── Tipos auxiliares ──────────────────────────────────────────────────────────
 
@@ -58,12 +58,17 @@ export function clearLocalStudent(): void {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToStudent(row: any): Student {
+  const cleanEmail = (row.email ?? '').toLowerCase().trim();
+  const isSuperAdmin = cleanEmail === SUPERADMIN_EMAIL;
+  const role: UserRole = isSuperAdmin ? 'instructor' : (row.role === 'instructor' ? 'instructor' : 'alumno');
+
   return {
     id: row.id,
     email: row.email,
     firstName: row.first_name,
     lastName: row.last_name,
     name: row.name ?? `${row.first_name} ${row.last_name}`,
+    role,
     ward: row.ward ?? '',
     seminaryClass: row.seminary_class ?? 'Seminario - Antiguo Testamento',
     avatarSeed: row.avatar_seed ?? row.first_name,
@@ -85,6 +90,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
   const cleanEmail = email.trim().toLowerCase();
   const cleanFirst = firstName.trim();
   const cleanLast = lastName.trim();
+  const role: UserRole = cleanEmail === SUPERADMIN_EMAIL ? 'instructor' : 'alumno';
 
   try {
     // 1. Crear usuario en Supabase Auth
@@ -98,7 +104,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
 
     const userId = authData.user.id;
 
-    // 2. Insertar perfil en public.students
+    // 2. Insertar perfil en public.students (role default 'alumno', o 'instructor' para superadmin)
     const { data, error } = await supabase
       .from('students')
       .insert({
@@ -106,6 +112,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
         email: cleanEmail,
         first_name: cleanFirst,
         last_name: cleanLast,
+        role,
         ward: ward?.trim() ?? '',
         seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
         avatar_seed: cleanFirst,
@@ -115,7 +122,14 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
 
     if (error) throw new Error(error.message);
 
-    const student = rowToStudent({ ...data, completed_days: [], notes: {}, unlocked_badge_ids: [] });
+    // Si es superadmin, también asegurar que esté en la tabla instructors
+    if (role === 'instructor') {
+      try {
+        await supabase.from('instructors').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      } catch {}
+    }
+
+    const student = rowToStudent({ ...data, role, completed_days: [], notes: {}, unlocked_badge_ids: [] });
     saveLocalStudent(student);
     return student;
 
@@ -130,6 +144,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
       firstName: cleanFirst,
       lastName: cleanLast,
       name: `${cleanFirst} ${cleanLast}`,
+      role,
       ward: ward?.trim() ?? '',
       seminaryClass: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
       avatarSeed: cleanFirst,
@@ -346,6 +361,61 @@ export async function fetchInstructorData(): Promise<{ students: Student[]; stat
   }
 }
 
+// ── ROLE MANAGEMENT ───────────────────────────────────────────────────────────
+
+export async function updateStudentRole(studentId: string, newRole: UserRole): Promise<void> {
+  try {
+    // 1. Actualizar columna role en la tabla students
+    const { error: studentErr } = await supabase
+      .from('students')
+      .update({ role: newRole })
+      .eq('id', studentId);
+
+    if (studentErr) {
+      console.warn('No se pudo actualizar public.students.role:', studentErr.message);
+    }
+
+    // 2. Sincronizar tabla de instructores (whitelist de acceso a datos)
+    if (newRole === 'instructor') {
+      try {
+        await supabase
+          .from('instructors')
+          .upsert({ user_id: studentId }, { onConflict: 'user_id' });
+      } catch (insErr) {
+        console.warn('No se pudo insertar en public.instructors:', insErr);
+      }
+    } else {
+      try {
+        await supabase
+          .from('instructors')
+          .delete()
+          .eq('user_id', studentId);
+      } catch (delErr) {
+        console.warn('No se pudo eliminar de public.instructors:', delErr);
+      }
+    }
+  } catch (err) {
+    console.warn('Error al actualizar rol en Supabase (usando fallback local):', err);
+  }
+
+  // 3. Sincronizar caché local
+  try {
+    const stored = getStoredInstructorStudents();
+    const idx = stored.findIndex(s => s.id === studentId);
+    if (idx !== -1) {
+      stored[idx].role = newRole;
+      localStorage.setItem(LOCAL_INSTRUCTOR_STUDENTS_KEY, JSON.stringify(stored));
+    }
+    const current = getLocalStudent();
+    if (current && current.id === studentId) {
+      current.role = newRole;
+      saveLocalStudent(current);
+    }
+  } catch (err) {
+    console.error('Error al actualizar rol en almacenamiento local:', err);
+  }
+}
+
 // ── LOGOUT ────────────────────────────────────────────────────────────────────
 
 export async function logoutStudent(): Promise<void> {
@@ -381,6 +451,7 @@ const FALLBACK_SEED_STUDENTS: Student[] = [
     id: 'stud-1',
     email: 'lucas.romero@seminario.org',
     name: 'Lucas Romero',
+    role: 'alumno',
     seminaryClass: 'Clase Matutina - Barrio Central',
     avatarSeed: 'Lucas',
     completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
@@ -396,6 +467,7 @@ const FALLBACK_SEED_STUDENTS: Student[] = [
     id: 'stud-2',
     email: 'valentina.silva@seminario.org',
     name: 'Valentina Silva',
+    role: 'alumno',
     seminaryClass: 'Clase Vespertina - Estaca Sur',
     avatarSeed: 'Valentina',
     completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21],
@@ -411,6 +483,7 @@ const FALLBACK_SEED_STUDENTS: Student[] = [
     id: 'stud-3',
     email: 'mateo.gomez@seminario.org',
     name: 'Mateo Gómez',
+    role: 'alumno',
     seminaryClass: 'Clase Matutina - Barrio Central',
     avatarSeed: 'Mateo',
     completedDays: [1,2,3,4,5,6,7],
@@ -426,6 +499,7 @@ const FALLBACK_SEED_STUDENTS: Student[] = [
     id: 'stud-4',
     email: 'sofia.morales@seminario.org',
     name: 'Sofía Morales',
+    role: 'alumno',
     seminaryClass: 'Clase Temprana - Barrio Norte',
     avatarSeed: 'Sofia',
     completedDays: [1,2,3,4,5],
@@ -441,6 +515,7 @@ const FALLBACK_SEED_STUDENTS: Student[] = [
     id: 'stud-5',
     email: 'benjamin.castro@seminario.org',
     name: 'Benjamín Castro',
+    role: 'alumno',
     seminaryClass: 'Clase Vespertina - Estaca Sur',
     avatarSeed: 'Benjamin',
     completedDays: [1,2,3],

@@ -15,15 +15,17 @@ import {
   ChevronUp,
   Mail,
   Sparkles,
+  UserCheck,
 } from 'lucide-react';
-import { Student, InstructorStats } from '../types';
-import { fetchInstructorData, resetSeedStudents, toggleStudentDay } from '../utils/api';
+import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
+import { fetchInstructorData, resetSeedStudents, toggleStudentDay, updateStudentRole } from '../utils/api';
 import { SPECIAL_BADGES } from '../data/readings';
 
 interface AdminInstructorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStudentUpdated?: () => void;
+  currentStudent?: Student | null;
 }
 
 /* Reusable stat card */
@@ -65,14 +67,18 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   isOpen,
   onClose,
   onStudentUpdated,
+  currentStudent,
 }) => {
   if (!isOpen) return null;
+
+  // Protección: los alumnos no pueden ver esta vista
+  const hasAccess = isUserInstructor(currentStudent);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'streak7' | 'completed' | 'recent'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'streak7' | 'completed' | 'recent'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -89,7 +95,11 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (hasAccess) {
+      loadData();
+    }
+  }, [hasAccess]);
 
   const handleResetSeeds = async () => {
     if (confirm('¿Deseas restaurar la lista de alumnos de prueba para demostración?')) {
@@ -117,15 +127,43 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   };
 
+  const handleToggleRole = async (targetStudent: Student) => {
+    const isTargetSuper = (targetStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    if (isTargetSuper) {
+      alert('El rol del Superadministrador laconeo@gmail.com no puede ser modificado.');
+      return;
+    }
+
+    const currentRole = targetStudent.role === 'instructor' ? 'instructor' : 'alumno';
+    const nextRole: UserRole = currentRole === 'instructor' ? 'alumno' : 'instructor';
+    const actionDesc = nextRole === 'instructor' ? 'promover a INSTRUCTOR' : 'cambiar a rol ALUMNO';
+
+    if (confirm(`¿Deseas ${actionDesc} a ${targetStudent.name} (${targetStudent.email})?`)) {
+      try {
+        await updateStudentRole(targetStudent.id, nextRole);
+        setStudents((prev) =>
+          prev.map((s) => (s.id === targetStudent.id ? { ...s, role: nextRole } : s))
+        );
+        setActionMessage(
+          `Rol de ${targetStudent.name} cambiado a ${nextRole === 'instructor' ? 'Instructor 🛡️' : 'Alumno 📖'}`
+        );
+        setTimeout(() => setActionMessage(null), 3000);
+        if (onStudentUpdated) onStudentUpdated();
+      } catch {
+        alert('Error al actualizar rol del usuario');
+      }
+    }
+  };
+
   const exportReport = () => {
     const lines = [
       'REPORTE – «DETENTE, LEE, CONECTA»',
       `Fecha: ${new Date().toLocaleDateString('es-ES')}`,
-      `Total: ${students.length} alumnos`,
+      `Total: ${students.length} usuarios`,
       '---',
       ...students.map(
         (s) =>
-          `• ${s.name} (${s.email}) | Racha: ${s.currentStreak}d | Días: ${s.completedDays.length}/30 | Cartas: ${s.unlockedBadgeIds.length}`
+          `• [${s.role || 'alumno'}] ${s.name} (${s.email}) | Racha: ${s.currentStreak}d | Días: ${s.completedDays.length}/30 | Cartas: ${s.unlockedBadgeIds.length}`
       ),
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
@@ -142,20 +180,50 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     const match =
       s.name.toLowerCase().includes(q) ||
       s.email.toLowerCase().includes(q) ||
-      (s.seminaryClass?.toLowerCase() || '').includes(q);
+      (s.seminaryClass?.toLowerCase() || '').includes(q) ||
+      (s.role || 'alumno').toLowerCase().includes(q);
     if (!match) return false;
+    if (selectedFilter === 'instructors') return isUserInstructor(s);
     if (selectedFilter === 'streak7') return s.currentStreak >= 7;
     if (selectedFilter === 'completed') return s.completedDays.length >= 30;
     if (selectedFilter === 'recent') return s.completedDays.length > 0;
     return true;
   });
 
+  const instructorsCount = students.filter(isUserInstructor).length;
+
   const FILTERS = [
     { id: 'all' as const, label: `Todos (${students.length})`, color: '#3c3c3c', bg: '#3c3c3c' },
+    { id: 'instructors' as const, label: `Instructores (${instructorsCount})`, color: '#ff9600', bg: '#222222' },
     { id: 'streak7' as const, label: 'Racha ≥7', color: '#ff9600', bg: '#ff9600' },
     { id: 'completed' as const, label: 'Meta 30d', color: '#58cc02', bg: '#58cc02' },
     { id: 'recent' as const, label: 'Con lecturas', color: '#1cb0f6', bg: '#1cb0f6' },
   ];
+
+  if (!hasAccess) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn"
+        style={{ background: 'rgba(0,0,0,0.65)' }}
+      >
+        <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border-2 border-[#e5e5e5]">
+          <div className="w-16 h-16 rounded-full bg-[#ffeeee] border-2 border-[#ff4b4b] flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-8 h-8 text-[#ff4b4b]" />
+          </div>
+          <h3 className="font-display font-bold text-xl text-[#3c3c3c] mb-2">Acceso Restringido</h3>
+          <p className="text-sm text-[#777777] mb-6">
+            Esta sección es exclusiva para <strong>Instructores</strong>. Tu cuenta tiene rol de <strong>Alumno</strong>.
+          </p>
+          <button
+            onClick={onClose}
+            className="btn-duo-green w-full font-display font-bold py-3 rounded-xl"
+          >
+            Volver a la App
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -329,6 +397,8 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
               {filteredStudents.map((student) => {
                 const isExpanded = expandedStudentId === student.id;
                 const percent = Math.round((student.completedDays.length / 30) * 100);
+                const isTargetSuper = (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+                const isTargetInstructor = isUserInstructor(student);
 
                 return (
                   <div
@@ -349,16 +419,18 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           width: 42,
                           height: 42,
                           borderRadius: '50%',
-                          background: '#1cb0f6',
+                          background: isTargetInstructor ? '#3c3c3c' : '#1cb0f6',
+                          color: isTargetInstructor ? '#ffc800' : '#ffffff',
+                          border: isTargetInstructor ? '2px solid #ffc800' : 'none',
                           fontSize: 18,
                         }}
                       >
                         {student.name.charAt(0).toUpperCase()}
                       </div>
 
-                      {/* Name + email */}
+                      {/* Name + email + role */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <h4
                             className="font-display font-bold truncate"
                             style={{ fontSize: 15, color: '#3c3c3c' }}
@@ -368,9 +440,47 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           {student.completedDays.length >= 30 && (
                             <span title="Completó el desafío">👑</span>
                           )}
+
+                          {/* Role badge */}
+                          {isTargetSuper ? (
+                            <span
+                              className="font-display font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1"
+                              style={{
+                                fontSize: 10,
+                                background: '#222222',
+                                color: '#ffc800',
+                                border: '1px solid #ffc800',
+                              }}
+                            >
+                              Superadmin
+                            </span>
+                          ) : isTargetInstructor ? (
+                            <span
+                              className="font-display font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1"
+                              style={{
+                                fontSize: 10,
+                                background: '#3c3c3c',
+                                color: '#ffc800',
+                              }}
+                            >
+                              <Shield style={{ width: 10, height: 10 }} />
+                              Instructor
+                            </span>
+                          ) : (
+                            <span
+                              className="font-display font-bold rounded-full px-2 py-0.5"
+                              style={{
+                                fontSize: 10,
+                                background: '#f0f0f0',
+                                color: '#777777',
+                              }}
+                            >
+                              Alumno
+                            </span>
+                          )}
                         </div>
                         <p
-                          className="truncate flex items-center gap-1"
+                          className="truncate flex items-center gap-1 mt-0.5"
                           style={{ fontSize: 12, color: '#777777' }}
                         >
                           <Mail style={{ width: 12, height: 12, flexShrink: 0 }} />
@@ -424,6 +534,59 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           gap: 12,
                         }}
                       >
+                        {/* 🛡️ Role Management section */}
+                        <div
+                          className="rounded-xl flex items-center justify-between gap-3 p-3"
+                          style={{
+                            background: '#ffffff',
+                            border: '2px solid #e5e5e5',
+                          }}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                              style={{
+                                background: isTargetInstructor ? '#3c3c3c' : '#f0f0f0',
+                                color: isTargetInstructor ? '#ffc800' : '#777777',
+                              }}
+                            >
+                              <Shield style={{ width: 18, height: 18 }} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-display font-bold" style={{ fontSize: 13, color: '#3c3c3c' }}>
+                                Rol: {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Instructor 🛡️' : 'Alumno 📖'}
+                              </p>
+                              <p className="truncate" style={{ fontSize: 11, color: '#777777' }}>
+                                {isTargetSuper
+                                  ? 'Cuenta principal (laconeo@gmail.com). Permisos totales.'
+                                  : isTargetInstructor
+                                  ? 'Acceso al panel instructor y cambio de roles.'
+                                  : 'Acceso solo a lecturas, cartas y racha propia.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {!isTargetSuper && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleRole(student);
+                              }}
+                              className="font-display font-bold shrink-0 rounded-xl px-3 py-1.5 transition-all active:scale-95 shadow-sm"
+                              style={{
+                                fontSize: 12,
+                                background: isTargetInstructor ? '#ff4b4b' : '#3c3c3c',
+                                color: isTargetInstructor ? '#ffffff' : '#ffc800',
+                                border: 'none',
+                                cursor: 'pointer',
+                              }}
+                              title={isTargetInstructor ? 'Quitar rol de instructor' : 'Asignar rol de instructor'}
+                            >
+                              {isTargetInstructor ? 'Quitar Instructor' : 'Hacer Instructor'}
+                            </button>
+                          )}
+                        </div>
+
                         {/* Meta info */}
                         <div
                           style={{

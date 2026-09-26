@@ -31,10 +31,22 @@ export interface DayReading {
   isFinalMilestone?: boolean;
 }
 
+export type UserRole = 'alumno' | 'instructor';
+
+export const SUPERADMIN_EMAIL = 'laconeo@gmail.com';
+
+export function isUserInstructor(student: Student | null | undefined): boolean {
+  if (!student) return false;
+  const email = (student.email || '').toLowerCase().trim();
+  if (email === SUPERADMIN_EMAIL) return true;
+  return student.role === 'instructor';
+}
+
 export interface Student {
   id: string;
   email: string;
   name: string;
+  role?: UserRole;        // 'alumno' (default) o 'instructor'
   firstName?: string;
   lastName?: string;
   password?: string;
@@ -58,3 +70,4 @@ export interface InstructorStats {
   completed30DaysCount: number;
   totalDaysRead: number;
 }
+

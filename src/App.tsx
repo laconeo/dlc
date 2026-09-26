@@ -165,6 +165,7 @@ export default function App() {
         {/* Instructor Admin Modal */}
         <AdminInstructorModal
           isOpen={isAdminModalOpen}
+          currentStudent={student}
           onClose={() => setIsAdminModalOpen(false)}
           onStudentUpdated={() => {
             if (student) {

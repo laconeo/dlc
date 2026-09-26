@@ -1,6 +1,6 @@
 import React from 'react';
 import { Flame, Award, BookOpen, User, Shield } from 'lucide-react';
-import { Student } from '../types';
+import { Student, isUserInstructor } from '../types';
 
 interface TopHeaderProps {
   student: Student | null;
@@ -18,6 +18,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const streak = student?.currentStreak || 0;
   const badgesCount = student?.unlockedBadgeIds?.length || 0;
   const completedCount = student?.completedDays?.length || 0;
+  const canAccessAdmin = isUserInstructor(student);
 
   return (
     <header
@@ -62,18 +63,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Admin + Avatar */}
+        {/* Right: Admin (solo instructores) + Avatar */}
         <div className="flex items-center gap-2">
-          <button
-            id="instructor-admin-btn"
-            onClick={onOpenAdmin}
-            className="flex items-center gap-1.5 px-3 rounded-xl bg-[#3c3c3c] text-white active:scale-95 transition-transform"
-            style={{ height: 40, fontSize: 13, fontWeight: 700 }}
-            title="Panel de Instructor"
-          >
-            <Shield className="w-4 h-4 text-[#ffc800]" />
-            <span className="font-display">Instructor</span>
-          </button>
+          {canAccessAdmin && (
+            <button
+              id="instructor-admin-btn"
+              onClick={onOpenAdmin}
+              className="flex items-center gap-1.5 px-3 rounded-xl bg-[#3c3c3c] text-white active:scale-95 transition-transform shadow-sm"
+              style={{ height: 40, fontSize: 13, fontWeight: 700 }}
+              title="Panel de Instructor"
+            >
+              <Shield className="w-4 h-4 text-[#ffc800]" />
+              <span className="font-display">Instructor</span>
+            </button>
+          )}
 
           <button
             id="student-profile-btn"

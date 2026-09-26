@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Mail, User, BookOpen, Lock, Eye, EyeOff, Sparkles, ArrowRight, MapPin } from 'lucide-react';
-import { Student } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Mail, User, BookOpen, Lock, Eye, EyeOff, Sparkles, ArrowRight, MapPin, CheckCircle2, Flame, Shield } from 'lucide-react';
+import { Student, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
 import { loginStudent, registerStudent } from '../utils/api';
 
 interface StudentAuthModalProps {
@@ -131,6 +131,26 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado para la pantalla de bienvenida post-registro
+  const [registeredStudent, setRegisteredStudent] = useState<Student | null>(null);
+  const [countdown, setCountdown] = useState(5);
+
+  // Auto-login automático con cuenta regresiva en la pantalla de bienvenida
+  useEffect(() => {
+    if (!registeredStudent) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onSuccess(registeredStudent);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [registeredStudent, onSuccess]);
+
   const resetForm = () => { setError(null); setPassword(''); setConfirmPassword(''); };
   const switchMode = (m: AuthMode) => { setMode(m); resetForm(); };
 
@@ -155,14 +175,17 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     if (password !== confirmPassword) { setError('Las contraseñas no coinciden.'); return; }
     setLoading(true); setError(null);
     try {
-      onSuccess(await registerStudent({
+      const student = await registerStudent({
         email: email.trim(),
         password: password.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         ward: ward.trim(),
         seminaryClass: seminaryClass.trim() || 'Seminario - Antiguo Testamento',
-      }));
+      });
+      // Activamos la pantalla de bienvenida celebratoria
+      setRegisteredStudent(student);
+      setCountdown(5);
     } catch (err: any) {
       setError(err.message || 'Error al registrar. Intenta nuevamente.');
     } finally { setLoading(false); }
@@ -174,11 +197,139 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     { name: 'Mateo Gómez', email: 'mateo.gomez@seminario.org' },
   ];
 
-  /* ── LAYOUT:
-     - Outer: fixed inset-0, full-screen white, flex-col
-     - Top sticky "header" strip: green background, logo + title + tabs (NOT scrolling)
-     - Bottom: flex-1 overflow-y-auto — natural page scroll
-  ── */
+  /* ── 🌟 PANTALLA DE BIENVENIDA CELEBRATORIA ── */
+  if (registeredStudent) {
+    const isSuper = (registeredStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    const isInst = isUserInstructor(registeredStudent);
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col justify-between animate-fadeIn"
+        style={{ background: '#ffffff', maxWidth: 480, margin: '0 auto', left: 0, right: 0 }}
+      >
+        {/* Top Celebration Strip */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #58cc02 0%, #22c55e 100%)',
+            padding: '36px 20px 28px',
+            textAlign: 'center',
+            borderBottom: '4px solid #46a302',
+          }}
+        >
+          <div
+            className="w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center shadow-lg animate-bounce"
+            style={{
+              background: '#ffffff',
+              border: '4px solid #ffc800',
+              fontSize: 38,
+            }}
+          >
+            🎉
+          </div>
+          <h2
+            className="font-display font-bold text-white text-2xl"
+            style={{ textShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+          >
+            ¡Bienvenido(a), {registeredStudent.firstName || registeredStudent.name}!
+          </h2>
+          <p className="text-white/95 text-sm mt-1 font-medium">
+            Tu cuenta ha sido creada exitosamente en Supabase
+          </p>
+
+          {/* Role badge */}
+          <div className="mt-3">
+            <span
+              className="inline-flex items-center gap-1.5 font-display font-bold text-xs px-3.5 py-1 rounded-full shadow-sm"
+              style={{
+                background: isSuper ? '#222222' : isInst ? '#3c3c3c' : '#ffffff',
+                color: isSuper || isInst ? '#ffc800' : '#46a302',
+                border: isSuper ? '1px solid #ffc800' : 'none',
+              }}
+            >
+              {isSuper ? (
+                <><span>👑</span><span>Superadministrador</span></>
+              ) : isInst ? (
+                <><Shield className="w-3.5 h-3.5 text-[#ffc800]" /><span>Instructor</span></>
+              ) : (
+                <><CheckCircle2 className="w-3.5 h-3.5 text-[#46a302]" /><span>Alumno de Seminario</span></>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {/* Content body */}
+        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3.5">
+          {/* Email Welcome card */}
+          <div
+            className="rounded-2xl p-4 flex items-start gap-3 border-2 border-[#e5e5e5]"
+            style={{ background: '#f8fafc' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#e0f2fe] flex items-center justify-center shrink-0 text-[#0284c7]">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-sm text-[#1e293b]">
+                Email de bienvenida enviado
+              </p>
+              <p className="text-xs text-[#64748b] mt-0.5">
+                Hemos registrado tu correo <strong>{registeredStudent.email}</strong>. Recibirás tus confirmaciones y notificaciones de Seminario en tu bandeja de entrada.
+              </p>
+            </div>
+          </div>
+
+          {/* Auto-login status card */}
+          <div
+            className="rounded-2xl p-4 flex items-start gap-3 border-2 border-[#bbf7d0]"
+            style={{ background: '#f0fdf4' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#dcfce7] flex items-center justify-center shrink-0 text-[#16a34a]">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-sm text-[#15803d]">
+                Inicio de sesión automático
+              </p>
+              <p className="text-xs text-[#166534] mt-0.5">
+                Tu sesión ha sido iniciada en Supabase. Ya estás autenticado y listo para ingresar sin tener que reescribir tu contraseña.
+              </p>
+            </div>
+          </div>
+
+          {/* 30 Days Challenge preview */}
+          <div
+            className="rounded-2xl p-4 border-2 border-[#fed7aa]"
+            style={{ background: '#fff7ed' }}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <Flame className="w-5 h-5 text-[#ea580c] fill-[#ea580c]" />
+              <span className="font-display font-bold text-sm text-[#9a3412]">
+                ¡Comienza hoy tu Día 1!
+              </span>
+            </div>
+            <p className="text-xs text-[#c2410c]">
+              Lectura de hoy: <strong>Josué 1:1-9</strong> («Esfuérzate y sé valiente»). Al acumular 7 días seguidos desbloquearás tu primera carta especial (Abraham).
+            </p>
+          </div>
+        </div>
+
+        {/* Bottom Action Button */}
+        <div className="p-4 border-t-2 border-[#e5e5e5] bg-white">
+          <button
+            onClick={() => onSuccess(registeredStudent)}
+            className="btn-duo-green w-full font-display font-bold text-base py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+          >
+            <span>¡Entrar al Desafío Ahora!</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+          <p className="text-center text-xs text-[#94a3b8] mt-2 font-medium">
+            Entrando automáticamente en {countdown} segundos...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── LAYOUT: Formularios normales ── */
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col animate-fadeIn"

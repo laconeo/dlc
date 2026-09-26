@@ -152,6 +152,18 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
       } catch {}
     }
 
+    // 2b. Auto-login inmediato para garantizar sesión activa en Supabase
+    if (!authData.session) {
+      try {
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password.trim(),
+        });
+      } catch (loginErr) {
+        console.warn('Auto-login post-registro notice:', loginErr);
+      }
+    }
+
     // 3. Cargar perfil desde students_full o construirlo
     let student: Student;
     try {
@@ -163,6 +175,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
 
       if (fullData) {
         student = rowToStudent(fullData);
+        student.password = password.trim();
       } else {
         student = rowToStudent({
           ...(insertedData || {}),
@@ -177,6 +190,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
           notes: {},
           unlocked_badge_ids: [],
         });
+        student.password = password.trim();
       }
     } catch {
       student = rowToStudent({
@@ -192,6 +206,7 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
         notes: {},
         unlocked_badge_ids: [],
       });
+      student.password = password.trim();
     }
 
     saveLocalStudent(student);

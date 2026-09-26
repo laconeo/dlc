@@ -151,6 +151,20 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     return () => clearInterval(interval);
   }, [registeredStudent, onSuccess]);
 
+  // Bloquear scroll global del documento mientras el modal esté abierto
+  useEffect(() => {
+    if (isOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+      };
+    }
+  }, [isOpen]);
+
   const resetForm = () => { setError(null); setPassword(''); setConfirmPassword(''); };
   const switchMode = (m: AuthMode) => { setMode(m); resetForm(); };
 
@@ -326,9 +340,13 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   /* ── LAYOUT: Formularios normales ── */
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col overflow-hidden animate-fadeIn"
-      style={{ background: '#ffffff', maxWidth: 480, margin: '0 auto', left: 0, right: 0 }}
+      className="fixed inset-0 z-50 flex justify-center bg-white sm:bg-black/50 overflow-hidden animate-fadeIn"
+      style={{ overscrollBehavior: 'none' }}
     >
+      <div
+        className="w-full max-w-md h-full max-h-[100dvh] bg-white flex flex-col overflow-hidden relative sm:shadow-2xl sm:border-x sm:border-[#e5e5e5]"
+        style={{ overscrollBehavior: 'none' }}
+      >
       {/* ══ STICKY TOP HEADER ══ */}
       <div
         style={{
@@ -405,7 +423,11 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
       {/* ══ FORM AREA (sin scroll en login) ══ */}
       <div
         className={`flex-1 ${mode === 'login' ? 'overflow-hidden flex flex-col justify-center' : 'overflow-y-auto no-scrollbar'}`}
-        style={{ padding: mode === 'login' ? '12px 20px 20px' : '0 20px 24px' }}
+        style={{
+          padding: mode === 'login' ? '12px 20px 20px' : '0 20px 24px',
+          overflowY: mode === 'login' ? 'hidden' : 'auto',
+          overscrollBehavior: 'none',
+        }}
       >
         {/* Error */}
         {error && (
@@ -633,6 +655,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
             )}
           </form>
         )}
+      </div>
       </div>
     </div>
   );

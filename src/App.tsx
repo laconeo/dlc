@@ -135,7 +135,7 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className={`flex-1 no-scrollbar ${isProfileModalOpen || isReadingModalOpen || isMinisteringModalOpen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 no-scrollbar ${isProfileModalOpen || isReadingModalOpen || isMinisteringModalOpen || isAuthModalOpen || !student ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {loading ? (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3" style={{ color: '#afafaf' }}>
               <span className="text-5xl animate-bounce">📖</span>

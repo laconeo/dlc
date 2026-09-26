@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { X, Award, Sparkles, Check, Lock, Shield, ArrowLeft } from 'lucide-react';
+import React from 'react';
+import { Award, ArrowLeft, Sparkles, Lock, Flame, Shield } from 'lucide-react';
 import { Student, SpecialBadge } from '../types';
-import { SPECIAL_BADGES } from '../data/readings';
 
 interface CardsGalleryModalProps {
   student: Student | null;
@@ -10,53 +9,25 @@ interface CardsGalleryModalProps {
   selectedBadge?: SpecialBadge | null;
 }
 
-/* Color palette per badge */
-const BADGE_COLORS: Record<string, { color: string; bg: string; border: string; cardFrom: string; cardTo: string }> = {
-  abraham:    { color: '#1cb0f6', bg: '#e8f7ff', border: '#a0dcfc', cardFrom: '#1cb0f6', cardTo: '#1899d6' },
-  isaac:      { color: '#58cc02', bg: '#e8f9d9', border: '#a4e060', cardFrom: '#58cc02', cardTo: '#46a302' },
-  jacob:      { color: '#a560f0', bg: '#f5eeff', border: '#c8a0f8', cardFrom: '#a560f0', cardTo: '#8a40d0' },
-  jesucristo: { color: '#ffc800', bg: '#fffbe0', border: '#ffe066', cardFrom: '#ffc800', cardTo: '#e5a400' },
-};
-
 export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
   student,
   isOpen = true,
   onClose,
-  selectedBadge: initialSelectedBadge,
 }) => {
   if (isOpen === false) return null;
 
-  const [activeBadge, setActiveBadge] = useState<SpecialBadge>(
-    initialSelectedBadge || SPECIAL_BADGES.abraham
-  );
-
-  const unlockedBadgeIds = student?.unlockedBadgeIds || [];
+  const currentStreak = student?.currentStreak || 0;
   const completedCount = student?.completedDays?.length || 0;
 
-  const allBadges = [
-    SPECIAL_BADGES.abraham,
-    SPECIAL_BADGES.isaac,
-    SPECIAL_BADGES.jacob,
-    SPECIAL_BADGES.jesucristo,
-  ];
-
-  const isUnlocked = unlockedBadgeIds.includes(activeBadge.id);
-  const bc = BADGE_COLORS[activeBadge.id] || BADGE_COLORS.abraham;
-
   return (
-    <div
-      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
-    >
-      {/* ── Header ── */}
+    <div className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn">
+      {/* ── Top Header ── */}
       <div
+        className="flex items-center justify-between shrink-0"
         style={{
           background: '#3c3c3c',
           borderBottom: '3px solid #222222',
           padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
         }}
       >
         <div className="flex items-center gap-3">
@@ -70,17 +41,14 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
             <ArrowLeft style={{ width: 18, height: 18, color: '#ffffff' }} />
           </button>
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: '#ffc800' }}
           >
             <Award style={{ width: 22, height: 22, color: '#3c3c3c' }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2
-                className="font-display font-bold text-white"
-                style={{ fontSize: 17, lineHeight: 1.2 }}
-              >
+              <h2 className="font-display font-bold text-white text-base leading-tight">
                 Álbum de Cartas
               </h2>
               <span
@@ -91,273 +59,139 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
               </span>
             </div>
             <p style={{ fontSize: 12, color: '#afafaf' }}>
-              Coleccionables de patriarcas y Jesucristo
+              Coleccionables de Fe y Racha
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Banner Informativo Próximamente ── */}
-      <div
-        className="mx-3 mt-3 p-3.5 rounded-2xl flex items-start gap-3 border-2 border-[#fed7aa] shrink-0 shadow-sm"
-        style={{ background: '#fff7ed' }}
-      >
-        <div className="w-10 h-10 rounded-xl bg-[#ffedd5] flex items-center justify-center shrink-0 text-xl border border-[#fed7aa]">
-          ⏳
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Sparkles className="w-4 h-4 text-[#ea580c]" />
-            <p className="font-display font-bold text-sm text-[#9a3412]">
-              ¡Colección de Cartas — Próximamente!
-            </p>
-          </div>
-          <p className="text-xs text-[#c2410c] leading-relaxed">
-            Esta sección estará disponible muy pronto. Continúa manteniendo tu racha de lectura diaria para que estés listo para recibir tus cartas exclusivas de patriarcas y la carta dorada de Jesucristo.
-          </p>
-        </div>
-      </div>
-
-      {/* ── Badge Tab Selector ── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 8,
-            padding: '12px',
-            background: '#f7f7f7',
-            borderBottom: '2px solid #e5e5e5',
-            flexShrink: 0,
+      {/* ── Scrollable Body: Próximamente Content ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-5 flex flex-col items-center justify-center text-center">
+        {/* Animated Golden Teaser Card */}
+        <div
+          className="relative rounded-3xl p-6 mb-6 shadow-xl border-4 transition-transform duration-300 hover:scale-105"
+          style={{
+            width: '100%',
+            maxWidth: 280,
+            background: 'linear-gradient(145deg, #fffbe0 0%, #ffffff 45%, #fff3b0 100%)',
+            borderColor: '#ffc800',
           }}
         >
-          {allBadges.map((badge) => {
-            const bUnlocked = unlockedBadgeIds.includes(badge.id);
-            const bCurrent = activeBadge.id === badge.id;
-            const bColors = BADGE_COLORS[badge.id];
+          {/* Card header */}
+          <div className="flex justify-between items-center mb-3">
+            <span
+              className="font-display font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full"
+              style={{ background: '#3c3c3c', color: '#ffc800' }}
+            >
+              Colección Especial
+            </span>
+            <Sparkles className="w-5 h-5 text-[#ffc800]" />
+          </div>
 
-            return (
-              <button
-                key={badge.id}
-                onClick={() => setActiveBadge(badge)}
-                className="flex flex-col items-center gap-1.5 rounded-2xl transition-all active:scale-95"
-                style={{
-                  padding: '10px 6px',
-                  background: bCurrent ? bColors.bg : '#ffffff',
-                  border: `2px solid ${bCurrent ? bColors.color : '#e5e5e5'}`,
-                  outline: bCurrent ? `3px solid ${bColors.color}40` : 'none',
-                }}
-              >
-                <div
-                  className="font-display font-bold flex items-center justify-center rounded-xl"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    fontSize: 14,
-                    background: bUnlocked ? bColors.color : '#e5e5e5',
-                    color: bUnlocked ? '#ffffff' : '#afafaf',
-                  }}
-                >
-                  {bUnlocked ? '✓' : badge.weekNumber <= 3 ? `S${badge.weekNumber}` : '👑'}
-                </div>
-                <span
-                  className="font-display font-bold truncate w-full text-center"
-                  style={{
-                    fontSize: 11,
-                    color: bCurrent ? bColors.color : '#777777',
-                  }}
-                >
-                  {badge.patriarch.split(' ')[0]}
-                </span>
-              </button>
-            );
-          })}
+          {/* Card Icon Spotlight */}
+          <div
+            className="w-24 h-24 rounded-2xl mx-auto my-3 flex items-center justify-center shadow-inner relative"
+            style={{
+              background: 'linear-gradient(135deg, #ffe066 0%, #ffc800 100%)',
+              border: '3px solid #e5a400',
+            }}
+          >
+            <Lock className="w-10 h-10 text-white drop-shadow-md" />
+            <div
+              className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md text-sm"
+              style={{ background: '#ffffff', border: '2px solid #ffc800' }}
+            >
+              👑
+            </div>
+          </div>
+
+          <h3 className="font-display font-bold text-lg text-[#3c3c3c] mt-2">
+            Cartas de Patriarcas
+          </h3>
+          <p className="text-xs text-[#777777] font-medium mt-1">
+            Abraham · Isaac · Jacob · Jesucristo
+          </p>
+
+          <div
+            className="mt-4 pt-3 border-t-2 border-[#ffe066] flex items-center justify-center gap-2"
+          >
+            <span
+              className="font-display font-bold text-xs uppercase px-3 py-1 rounded-xl"
+              style={{ background: '#ff9600', color: '#ffffff' }}
+            >
+              Próximamente disponible
+            </span>
+          </div>
         </div>
 
-        {/* ── Card Spotlight ── */}
-        <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '20px 16px 0' }}>
-          <div className="flex flex-col items-center">
+        {/* Informative Explanation */}
+        <h2 className="font-display font-bold text-2xl text-[#3c3c3c] mb-2">
+          ¡Muy pronto en tu app!
+        </h2>
+        <p className="text-sm text-[#666666] max-w-xs leading-relaxed mb-5">
+          Estamos afinando la entrega de cartas coleccionables para premiar tu avance semanal en las lecturas del Antiguo Testamento.
+        </p>
 
-            {/* Collectible Card */}
-            <div
-              className="relative overflow-hidden transition-transform duration-300 hover:scale-[1.02]"
-              style={{
-                width: 260,
-                borderRadius: 24,
-                padding: '20px 18px',
-                border: `4px solid ${isUnlocked ? bc.border : '#e5e5e5'}`,
-                background: isUnlocked
-                  ? `linear-gradient(160deg, ${bc.cardFrom}22 0%, #ffffff 50%, ${bc.cardFrom}11 100%)`
-                  : '#f7f7f7',
-                opacity: isUnlocked ? 1 : 0.7,
-                filter: isUnlocked ? 'none' : 'grayscale(0.6)',
-              }}
-            >
-              {/* Holographic sheen */}
-              {isUnlocked && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%)' }}
-                />
-              )}
-
-              {/* Card type label */}
-              <div className="flex items-center justify-between mb-3 relative z-10">
-                <span
-                  className="font-display font-bold uppercase rounded-full px-3"
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: '0.08em',
-                    height: 22,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    background: '#3c3c3c',
-                    color: '#ffffff',
-                  }}
-                >
-                  {activeBadge.tier === 'gold' ? 'CARTA DORADA' : 'CARTA PLATEADA'}
-                </span>
-                <span
-                  className="font-bold"
-                  style={{ fontSize: 11, color: '#777777' }}
-                >
-                  {activeBadge.weekNumber <= 3 ? `Sem. ${activeBadge.weekNumber}` : 'Final'}
-                </span>
-              </div>
-
-              {/* Card art icon */}
-              <div className="my-4 flex justify-center relative z-10">
-                <div
-                  className="w-24 h-24 rounded-2xl flex items-center justify-center"
-                  style={{
-                    background: isUnlocked ? bc.cardFrom : '#d0d0d0',
-                    border: `3px solid ${isUnlocked ? bc.border : '#c0c0c0'}`,
-                  }}
-                >
-                  {activeBadge.tier === 'gold' ? (
-                    <Sparkles
-                      style={{ width: 48, height: 48, color: '#ffffff', animationDuration: '8s' }}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Shield style={{ width: 48, height: 48, color: '#ffffff' }} />
-                  )}
-                </div>
-              </div>
-
-              {/* Name & title */}
-              <div className="text-center relative z-10">
-                <h3
-                  className="font-display font-bold"
-                  style={{ fontSize: 22, color: '#3c3c3c', lineHeight: 1.2 }}
-                >
-                  {activeBadge.patriarch}
-                </h3>
-                <p style={{ fontSize: 13, color: '#777777', fontWeight: 600, marginTop: 2 }}>
-                  {activeBadge.title}
-                </p>
-                <p
-                  className="italic mt-3 rounded-xl"
-                  style={{
-                    fontSize: 12,
-                    color: '#3c3c3c',
-                    lineHeight: 1.5,
-                    background: 'rgba(255,255,255,0.7)',
-                    border: '1px solid rgba(0,0,0,0.08)',
-                    padding: '8px 10px',
-                  }}
-                >
-                  {activeBadge.quote}
-                </p>
-              </div>
-
-              {/* Locked / Unlocked status */}
-              <div
-                className="mt-4 pt-3 flex justify-center relative z-10"
-                style={{ borderTop: '1px solid rgba(0,0,0,0.1)' }}
-              >
-                {isUnlocked ? (
-                  <span
-                    className="font-display font-bold flex items-center gap-2 rounded-full px-4"
-                    style={{
-                      height: 30,
-                      fontSize: 12,
-                      background: '#e8f9d9',
-                      color: '#46a302',
-                      border: '2px solid #a4e060',
-                    }}
-                  >
-                    <Check style={{ width: 14, height: 14, strokeWidth: 3 }} />
-                    ¡GANADA!
-                  </span>
-                ) : (
-                  <span
-                    className="font-bold flex items-center gap-2 rounded-full px-4"
-                    style={{
-                      height: 30,
-                      fontSize: 12,
-                      background: '#f0f0f0',
-                      color: '#777777',
-                      border: '2px solid #d0d0d0',
-                    }}
-                  >
-                    <Lock style={{ width: 14, height: 14 }} />
-                    Día {activeBadge.unlockedAtDay}
-                  </span>
-                )}
-              </div>
+        {/* Feature Preview Cards */}
+        <div className="w-full max-w-sm space-y-2.5 mb-5 text-left">
+          <div
+            className="rounded-2xl p-3 flex items-center gap-3 border-2 border-[#e5e5e5]"
+            style={{ background: '#f8fafc' }}
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#e0f2fe] flex items-center justify-center shrink-0 text-[#0284c7]">
+              <Shield className="w-5 h-5" />
             </div>
-
-            {/* Info card */}
-            <div
-              className="w-full rounded-2xl mt-4 mb-4"
-              style={{ padding: '14px 16px', background: '#f7f7f7', border: '2px solid #e5e5e5' }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold" style={{ fontSize: 14, color: '#3c3c3c' }}>
-                  Requisito de Desafío:
-                </span>
-                <span
-                  className="font-display font-bold"
-                  style={{ fontSize: 14, color: isUnlocked ? '#46a302' : bc.color }}
-                >
-                  {completedCount} / {activeBadge.unlockedAtDay} días
-                </span>
-              </div>
-              {/* Progress mini-bar */}
-              <div
-                className="rounded-full overflow-hidden mb-3"
-                style={{ height: 10, background: '#e5e5e5', border: '2px solid #d0d0d0' }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(100, Math.round((completedCount / activeBadge.unlockedAtDay) * 100))}%`,
-                    background: isUnlocked ? '#58cc02' : bc.cardFrom,
-                  }}
-                />
-              </div>
-              <p style={{ fontSize: 13, color: '#3c3c3c', lineHeight: 1.6 }}>
-                {activeBadge.description}
+            <div>
+              <p className="font-display font-bold text-xs text-[#1e293b]">
+                Cartas Plateadas de Patriarcas
               </p>
-              <p style={{ fontSize: 12, color: '#777777', marginTop: 8, fontStyle: 'italic' }}>
-                {activeBadge.tier === 'gold'
-                  ? 'Reúne las 3 cartas plateadas completando los 30 días para recibir la Carta Dorada de Jesucristo.'
-                  : 'Lee todos los días de la semana para desbloquear esta carta de personaje bíblico.'}
+              <p className="text-[11px] text-[#64748b]">
+                Se desbloquean al completar cada semana ininterrumpida de lectura (Semana 1, 2 y 3).
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-2xl p-3 flex items-center gap-3 border-2 border-[#ffe066]"
+            style={{ background: '#fffdf0' }}
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#fff3b0] flex items-center justify-center shrink-0 text-[#d97706]">
+              <Award className="w-5 h-5 text-[#d97706]" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-xs text-[#78350f]">
+                Carta Dorada Suprema de Jesucristo
+              </p>
+              <p className="text-[11px] text-[#92400e]">
+                Recompensa exclusiva al completar los 30 días del desafío.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div style={{ padding: '12px 16px 16px', borderTop: '2px solid #f0f0f0', background: '#ffffff', flexShrink: 0 }}>
-          <button
-            onClick={onClose}
-            className="btn-duo-green font-display w-full flex items-center justify-center"
-            style={{ height: 48, borderRadius: 16, fontSize: 15 }}
-          >
-            ← Volver al Camino
-          </button>
+        {/* Student Current Streak Feedback */}
+        <div
+          className="rounded-2xl p-3 border-2 border-[#bbf7d0] flex items-center justify-center gap-2 mb-2 w-full max-w-sm"
+          style={{ background: '#f0fdf4' }}
+        >
+          <Flame className="w-5 h-5 text-[#16a34a] fill-[#16a34a]" />
+          <span className="font-display font-bold text-xs text-[#15803d]">
+            Tu progreso actual: {completedCount} de 30 días leídos · Racha: {currentStreak} días
+          </span>
         </div>
       </div>
+
+      {/* ── Bottom Action Button ── */}
+      <div
+        className="p-4 border-t-2 border-[#e5e5e5] bg-white shrink-0"
+      >
+        <button
+          onClick={onClose}
+          className="btn-duo-green w-full font-display font-bold text-base py-3.5 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <span>← Volver al Camino de Lecturas</span>
+        </button>
+      </div>
+    </div>
   );
 };

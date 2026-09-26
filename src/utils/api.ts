@@ -1,0 +1,488 @@
+/**
+ * api.ts – DLC (Detente, Lee, Conecta)
+ *
+ * Todas las operaciones de datos ahora usan Supabase directamente.
+ * El servidor Express (api-router.ts) ya no es necesario para estas llamadas.
+ *
+ * Lógica de fallback local conservada para modo offline.
+ */
+
+import { supabase } from './supabase';
+import { Student, InstructorStats } from '../types';
+
+// ── Tipos auxiliares ──────────────────────────────────────────────────────────
+
+export interface RegisterParams {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  ward?: string;
+  seminaryClass?: string;
+}
+
+// ── LocalStorage helpers ──────────────────────────────────────────────────────
+
+const LOCAL_STORAGE_KEY = 'detente_lee_conecta_current_student';
+const LOCAL_INSTRUCTOR_STUDENTS_KEY = 'detente_lee_conecta_instructor_students';
+
+export function getLocalStudent(): Student | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalStudent(student: Student): void {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(student));
+  } catch (err) {
+    console.error('Failed to save student locally', err);
+  }
+}
+
+export function clearLocalStudent(): void {
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  } catch (err) {
+    console.error('Failed to clear student locally', err);
+  }
+}
+
+// ── Row mapper ────────────────────────────────────────────────────────────────
+
+/**
+ * Convierte una fila de `students_full` (vista Supabase) al tipo Student de TS.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToStudent(row: any): Student {
+  return {
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    name: row.name ?? `${row.first_name} ${row.last_name}`,
+    ward: row.ward ?? '',
+    seminaryClass: row.seminary_class ?? 'Seminario - Antiguo Testamento',
+    avatarSeed: row.avatar_seed ?? row.first_name,
+    completedDays: (row.completed_days ?? []).map(Number),
+    currentStreak: row.current_streak ?? 0,
+    highestStreak: row.highest_streak ?? 0,
+    unlockedBadgeIds: row.unlocked_badge_ids ?? [],
+    lastCompletedDate: row.last_completed_date ?? undefined,
+    notes: row.notes ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// ── REGISTER ─────────────────────────────────────────────────────────────────
+
+export async function registerStudent(params: RegisterParams): Promise<Student> {
+  const { email, password, firstName, lastName, ward, seminaryClass } = params;
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanFirst = firstName.trim();
+  const cleanLast = lastName.trim();
+
+  try {
+    // 1. Crear usuario en Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: password.trim(),
+    });
+
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error('No se pudo crear el usuario.');
+
+    const userId = authData.user.id;
+
+    // 2. Insertar perfil en public.students
+    const { data, error } = await supabase
+      .from('students')
+      .insert({
+        id: userId,
+        email: cleanEmail,
+        first_name: cleanFirst,
+        last_name: cleanLast,
+        ward: ward?.trim() ?? '',
+        seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
+        avatar_seed: cleanFirst,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const student = rowToStudent({ ...data, completed_days: [], notes: {}, unlocked_badge_ids: [] });
+    saveLocalStudent(student);
+    return student;
+
+  } catch (err: any) {
+    console.warn('Supabase register failed, falling back to local:', err);
+
+    // Fallback local
+    const localStudent: Student = {
+      id: 'stud-local-' + Date.now(),
+      email: cleanEmail,
+      password: password.trim(),
+      firstName: cleanFirst,
+      lastName: cleanLast,
+      name: `${cleanFirst} ${cleanLast}`,
+      ward: ward?.trim() ?? '',
+      seminaryClass: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
+      avatarSeed: cleanFirst,
+      completedDays: [],
+      currentStreak: 0,
+      highestStreak: 0,
+      unlockedBadgeIds: [],
+      notes: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveLocalStudent(localStudent);
+    return localStudent;
+  }
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+
+export async function loginStudent(email: string, password?: string): Promise<Student> {
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    if (!password) throw new Error('Por favor ingresa tu contraseña.');
+
+    // 1. Auth con Supabase
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: password.trim(),
+    });
+
+    if (authError) {
+      if (authError.message.toLowerCase().includes('invalid')) {
+        throw new Error('Correo o contraseña incorrectos.');
+      }
+      throw new Error(authError.message);
+    }
+
+    if (!authData.user) throw new Error('No se pudo iniciar sesión.');
+
+    // 2. Cargar perfil completo desde la vista students_full
+    const { data, error } = await supabase
+      .from('students_full')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (error || !data) throw new Error('No se encontró el perfil del alumno.');
+
+    const student = rowToStudent(data);
+    saveLocalStudent(student);
+    return student;
+
+  } catch (err: any) {
+    // Re-lanzar errores de negocio (no de red)
+    if (!err.message?.includes('fetch') && !err.message?.includes('network')) {
+      throw err;
+    }
+
+    // Fallback offline
+    console.warn('Supabase login failed (offline), trying local:', err);
+    const local = getLocalStudent();
+    if (local && local.email.toLowerCase() === cleanEmail) {
+      if (local.password && password && local.password !== password.trim()) {
+        throw new Error('Contraseña incorrecta.');
+      }
+      return local;
+    }
+
+    const seeds = getStoredInstructorStudents();
+    const matched = seeds.find(s => s.email.toLowerCase() === cleanEmail);
+    if (matched) {
+      saveLocalStudent(matched);
+      return matched;
+    }
+
+    throw new Error('No se encontró el alumno o no hay conexión con el servidor.');
+  }
+}
+
+// ── TOGGLE DAY ────────────────────────────────────────────────────────────────
+
+export async function toggleStudentDay(studentId: string, day: number, note?: string): Promise<Student> {
+  try {
+    // 1. ¿Existe ya el día completado?
+    const { data: existing } = await supabase
+      .from('student_completed_days')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('day', day)
+      .maybeSingle();
+
+    if (existing) {
+      // Desmarcar
+      await supabase
+        .from('student_completed_days')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('day', day);
+    } else {
+      // Marcar
+      await supabase
+        .from('student_completed_days')
+        .insert({ student_id: studentId, day });
+
+      // Actualizar last_completed_date
+      await supabase
+        .from('students')
+        .update({ last_completed_date: new Date().toISOString().split('T')[0] })
+        .eq('id', studentId);
+    }
+
+    // 2. Guardar nota si viene
+    if (note !== undefined && note !== '') {
+      await supabase
+        .from('student_notes')
+        .upsert({ student_id: studentId, day, note }, { onConflict: 'student_id,day' });
+    }
+
+    // 3. Recalcular estadísticas y badges via función SQL
+    await supabase.rpc('recalculate_student_stats', { p_student_id: studentId });
+
+    // 4. Leer el perfil actualizado
+    const { data, error } = await supabase
+      .from('students_full')
+      .select('*')
+      .eq('id', studentId)
+      .single();
+
+    if (error || !data) throw new Error('Error al recargar el perfil.');
+
+    const student = rowToStudent(data);
+    saveLocalStudent(student);
+    return student;
+
+  } catch (err) {
+    console.warn('Supabase toggleDay failed, using local fallback:', err);
+
+    // Fallback local (mismo algoritmo que antes)
+    const local = getLocalStudent();
+    if (local && local.id === studentId) {
+      const idx = local.completedDays.indexOf(day);
+      if (idx > -1) {
+        local.completedDays.splice(idx, 1);
+      } else {
+        local.completedDays.push(day);
+        local.lastCompletedDate = new Date().toISOString().split('T')[0];
+      }
+      local.completedDays.sort((a, b) => a - b);
+
+      // Racha
+      let streak = 0;
+      for (let d = 1; d <= 31; d++) {
+        if (local.completedDays.includes(d)) streak++;
+        else break;
+      }
+      local.currentStreak = streak;
+      if (streak > local.highestStreak) local.highestStreak = streak;
+
+      // Badges
+      const badges: string[] = [];
+      if ([1,2,3,4,5,6,7].every(d => local.completedDays.includes(d))) badges.push('badge-abraham');
+      if (Array.from({ length: 14 }, (_, i) => i + 1).every(d => local.completedDays.includes(d))) badges.push('badge-isaac');
+      if (Array.from({ length: 21 }, (_, i) => i + 1).every(d => local.completedDays.includes(d))) badges.push('badge-jacob');
+      if (Array.from({ length: 30 }, (_, i) => i + 1).every(d => local.completedDays.includes(d)) || local.completedDays.includes(31)) badges.push('badge-jesucristo');
+      local.unlockedBadgeIds = badges;
+
+      if (note) {
+        if (!local.notes) local.notes = {};
+        local.notes[day] = note;
+      }
+      local.updatedAt = new Date().toISOString();
+      saveLocalStudent(local);
+      return local;
+    }
+    throw err;
+  }
+}
+
+// ── INSTRUCTOR DATA ───────────────────────────────────────────────────────────
+
+export async function fetchInstructorData(): Promise<{ students: Student[]; stats: InstructorStats }> {
+  try {
+    // Leer todos los alumnos (requiere que el usuario sea instructor en RLS)
+    const { data: rows, error } = await supabase
+      .from('students_full')
+      .select('*')
+      .order('current_streak', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    const students = (rows ?? []).map(rowToStudent);
+
+    // Stats calculadas en cliente (o puedes usar la vista instructor_stats)
+    const totalStudents = students.length;
+    const totalDaysRead = students.reduce((acc, s) => acc + s.completedDays.length, 0);
+    const averageStreak = totalStudents > 0
+      ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
+      : 0;
+
+    return {
+      students,
+      stats: {
+        totalStudents,
+        activeToday: students.filter(s => s.completedDays.length > 0).length,
+        averageStreak,
+        completed30DaysCount: students.filter(s => s.completedDays.length >= 30).length,
+        totalDaysRead,
+      },
+    };
+
+  } catch (err) {
+    console.warn('Supabase fetchInstructorData failed, using local fallback:', err);
+    return fetchInstructorDataLocal();
+  }
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
+
+export async function logoutStudent(): Promise<void> {
+  await supabase.auth.signOut();
+  clearLocalStudent();
+}
+
+// ── RESET SEEDS (dev only) ────────────────────────────────────────────────────
+
+export async function resetSeedStudents(): Promise<Student[]> {
+  console.warn('resetSeedStudents: en producción los seeds se manejan desde el SQL schema.');
+  localStorage.setItem(LOCAL_INSTRUCTOR_STUDENTS_KEY, JSON.stringify(FALLBACK_SEED_STUDENTS));
+  return FALLBACK_SEED_STUDENTS;
+}
+
+// ── Compat (backward-compatible) ─────────────────────────────────────────────
+
+export async function loginOrRegisterStudent(email: string, name?: string, seminaryClass?: string): Promise<Student> {
+  try {
+    return await loginStudent(email);
+  } catch {
+    const parts = (name || '').trim().split(' ');
+    const firstName = parts[0] || email.split('@')[0];
+    const lastName = parts.slice(1).join(' ') || 'Seminario';
+    return await registerStudent({ email, password: 'password123', firstName, lastName, seminaryClass });
+  }
+}
+
+// ── FALLBACK LOCAL (offline / sin Supabase) ───────────────────────────────────
+
+const FALLBACK_SEED_STUDENTS: Student[] = [
+  {
+    id: 'stud-1',
+    email: 'lucas.romero@seminario.org',
+    name: 'Lucas Romero',
+    seminaryClass: 'Clase Matutina - Barrio Central',
+    avatarSeed: 'Lucas',
+    completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
+    currentStreak: 14,
+    highestStreak: 14,
+    unlockedBadgeIds: ['badge-abraham','badge-isaac'],
+    lastCompletedDate: '2026-10-11',
+    notes: { 1: 'Sentí mucho valor al leer Josué 1.', 7: 'Hermosa experiencia con la oración de Ana.' },
+    createdAt: '2026-09-28T07:15:00.000Z',
+    updatedAt: '2026-10-11T20:30:00.000Z',
+  },
+  {
+    id: 'stud-2',
+    email: 'valentina.silva@seminario.org',
+    name: 'Valentina Silva',
+    seminaryClass: 'Clase Vespertina - Estaca Sur',
+    avatarSeed: 'Valentina',
+    completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21],
+    currentStreak: 21,
+    highestStreak: 21,
+    unlockedBadgeIds: ['badge-abraham','badge-isaac','badge-jacob'],
+    lastCompletedDate: '2026-10-18',
+    notes: { 18: 'Ester me inspiró a ser más valiente en el colegio.' },
+    createdAt: '2026-09-28T08:00:00.000Z',
+    updatedAt: '2026-10-18T19:45:00.000Z',
+  },
+  {
+    id: 'stud-3',
+    email: 'mateo.gomez@seminario.org',
+    name: 'Mateo Gómez',
+    seminaryClass: 'Clase Matutina - Barrio Central',
+    avatarSeed: 'Mateo',
+    completedDays: [1,2,3,4,5,6,7],
+    currentStreak: 7,
+    highestStreak: 7,
+    unlockedBadgeIds: ['badge-abraham'],
+    lastCompletedDate: '2026-10-04',
+    notes: {},
+    createdAt: '2026-09-28T09:20:00.000Z',
+    updatedAt: '2026-10-04T18:10:00.000Z',
+  },
+  {
+    id: 'stud-4',
+    email: 'sofia.morales@seminario.org',
+    name: 'Sofía Morales',
+    seminaryClass: 'Clase Temprana - Barrio Norte',
+    avatarSeed: 'Sofia',
+    completedDays: [1,2,3,4,5],
+    currentStreak: 5,
+    highestStreak: 5,
+    unlockedBadgeIds: [],
+    lastCompletedDate: '2026-10-02',
+    notes: {},
+    createdAt: '2026-09-28T10:00:00.000Z',
+    updatedAt: '2026-10-02T21:00:00.000Z',
+  },
+  {
+    id: 'stud-5',
+    email: 'benjamin.castro@seminario.org',
+    name: 'Benjamín Castro',
+    seminaryClass: 'Clase Vespertina - Estaca Sur',
+    avatarSeed: 'Benjamin',
+    completedDays: [1,2,3],
+    currentStreak: 3,
+    highestStreak: 3,
+    unlockedBadgeIds: [],
+    lastCompletedDate: '2026-09-30',
+    notes: {},
+    createdAt: '2026-09-28T11:00:00.000Z',
+    updatedAt: '2026-09-30T17:30:00.000Z',
+  },
+];
+
+function getStoredInstructorStudents(): Student[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_INSTRUCTOR_STUDENTS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return FALLBACK_SEED_STUDENTS;
+}
+
+function fetchInstructorDataLocal(): { students: Student[]; stats: InstructorStats } {
+  const students = getStoredInstructorStudents();
+  const current = getLocalStudent();
+  if (current && !students.some(s => s.id === current.id)) {
+    students.unshift(current);
+  }
+
+  const totalStudents = students.length;
+  const totalDaysRead = students.reduce((acc, s) => acc + s.completedDays.length, 0);
+  const averageStreak = totalStudents > 0
+    ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
+    : 0;
+
+  return {
+    students,
+    stats: {
+      totalStudents,
+      activeToday: students.filter(s => s.completedDays.length > 0).length,
+      averageStreak,
+      completed30DaysCount: students.filter(s => s.completedDays.length >= 30).length,
+      totalDaysRead,
+    },
+  };
+}

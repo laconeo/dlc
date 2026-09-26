@@ -1,0 +1,40 @@
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { defineConfig } from 'vite';
+
+export default defineConfig(({ command }) => {
+  const isDev = command === 'serve';
+
+  // Only mount the Express API middleware in dev (Supabase handles data in production)
+  const devPlugins: any[] = [];
+  if (isDev) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { apiApp } = require('./api-router.ts');
+      devPlugins.push({
+        name: 'api-server-middleware',
+        configureServer(server: any) {
+          server.middlewares.use(apiApp);
+        },
+      });
+    } catch {
+      // api-router not available — fine, Supabase is the data source
+    }
+  }
+
+  return {
+    // GitHub Pages serves from https://laconeo.github.io/dlc/
+    base: isDev ? '/' : '/dlc/',
+    plugins: [react(), tailwindcss(), ...devPlugins],
+    resolve: {
+      alias: {
+        '@': path.resolve(process.cwd(), '.'),
+      },
+    },
+    server: {
+      port: 5173,
+      host: true,
+    },
+  };
+});

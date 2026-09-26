@@ -1,0 +1,6 @@
+{
+  "name": "Detente, Lee, Conecta",
+  "description": "App móvil del desafío de racha de 30 días con lecturas del Antiguo Testamento estilo Duolingo, cartas coleccionables y panel de administración para instructores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

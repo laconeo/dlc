@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+/* =====================================================
+   DESIGN SYSTEM: DUOLINGO-AUTHENTIC
+   - Paleta exacta de Duolingo
+   - Tipografía grande y legible (mínimo 14px)
+   - Fondos blancos limpios (NO glassmorphism)
+   - Bordes fuertes, no sombras difusas
+   - Touch targets mínimo 48px para móvil
+   ===================================================== */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    font-size: 16px; /* base 16px for low-end phones */
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    background-color: #ffffff;
+    color: #3c3c3c;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overscroll-behavior-y: none;
+  }
+
+  .font-display {
+    font-family: 'Fredoka', 'Plus Jakarta Sans', sans-serif;
+  }
+
+  /* Ensure all interactive elements have good touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Inputs/textareas use natural height (controlled by padding) */
+  input, textarea, select {
+    min-height: unset;
+  }
+}
+
+/* =====================================================
+   DUOLINGO COLOR TOKENS (exact hex values)
+   ===================================================== */
+:root {
+  --duo-green:       #58cc02;
+  --duo-green-dark:  #46a302;
+  --duo-blue:        #1cb0f6;
+  --duo-blue-dark:   #1899d6;
+  --duo-gold:        #ffc800;
+  --duo-gold-dark:   #e5a400;
+  --duo-red:         #ff4b4b;
+  --duo-red-dark:    #ea2b2b;
+  --duo-orange:      #ff9600;
+  --duo-orange-dark: #e08600;
+  --duo-purple:      #a560f0;
+  --duo-purple-dark: #8a40d0;
+  --duo-teal:        #00cd9c;
+  --duo-teal-dark:   #00a87e;
+
+  --duo-bg:          #ffffff;
+  --duo-bg-gray:     #f7f7f7;
+  --duo-border:      #e5e5e5;
+  --duo-text:        #3c3c3c;
+  --duo-text-muted:  #777777;
+  --duo-text-light:  #afafaf;
+}
+
+/* =====================================================
+   3D TACTILE BUTTONS — authentic Duolingo style
+   ===================================================== */
+
+/* Green — primary action "Continuar" */
+.btn-duo-green {
+  background-color: var(--duo-green);
+  border-bottom: 4px solid var(--duo-green-dark);
+  border-radius: 16px;
+  color: #ffffff;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;        /* 16px minimum */
+  letter-spacing: 0.02em;
+  transition: filter 0.1s ease, transform 0.1s ease, border-bottom-width 0.1s ease;
+  cursor: pointer;
+}
+.btn-duo-green:hover  { filter: brightness(1.05); }
+.btn-duo-green:active { transform: translateY(3px); border-bottom-width: 1px; }
+
+/* Blue — secondary action */
+.btn-duo-blue {
+  background-color: var(--duo-blue);
+  border-bottom: 4px solid var(--duo-blue-dark);
+  border-radius: 16px;
+  color: #ffffff;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  transition: filter 0.1s ease, transform 0.1s ease, border-bottom-width 0.1s ease;
+  cursor: pointer;
+}
+.btn-duo-blue:hover  { filter: brightness(1.05); }
+.btn-duo-blue:active { transform: translateY(3px); border-bottom-width: 1px; }
+
+/* Gold — reward */
+.btn-duo-gold {
+  background-color: var(--duo-gold);
+  border-bottom: 4px solid var(--duo-gold-dark);
+  border-radius: 16px;
+  color: #3c3c3c;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  transition: filter 0.1s ease, transform 0.1s ease, border-bottom-width 0.1s ease;
+  cursor: pointer;
+}
+.btn-duo-gold:hover  { filter: brightness(1.05); }
+.btn-duo-gold:active { transform: translateY(3px); border-bottom-width: 1px; }
+
+/* Red — danger / logout */
+.btn-duo-red {
+  background-color: var(--duo-red);
+  border-bottom: 4px solid var(--duo-red-dark);
+  border-radius: 16px;
+  color: #ffffff;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  transition: filter 0.1s ease, transform 0.1s ease, border-bottom-width 0.1s ease;
+  cursor: pointer;
+}
+.btn-duo-red:hover  { filter: brightness(1.05); }
+.btn-duo-red:active { transform: translateY(3px); border-bottom-width: 1px; }
+
+/* Ghost — secondary, bordered */
+.btn-duo-ghost {
+  background-color: #ffffff;
+  border: 2px solid var(--duo-border);
+  border-bottom: 4px solid #c8c8c8;
+  border-radius: 16px;
+  color: var(--duo-text);
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  transition: filter 0.1s ease, transform 0.1s ease, border-bottom-width 0.1s ease;
+  cursor: pointer;
+}
+.btn-duo-ghost:hover  { background-color: #f7f7f7; }
+.btn-duo-ghost:active { transform: translateY(3px); border-bottom-width: 2px; }
+
+/* =====================================================
+   INPUT FIELDS — Duolingo style
+   ===================================================== */
+.input-duo {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  font-size: 1rem;          /* 16px — prevents iOS zoom */
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 500;
+  color: var(--duo-text);
+  background-color: #ffffff;
+  border: 2px solid var(--duo-border);
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.input-duo:focus {
+  border-color: var(--duo-blue);
+}
+.input-duo::placeholder {
+  color: var(--duo-text-light);
+}
+
+/* =====================================================
+   CARD — clean Duolingo card
+   ===================================================== */
+.card-duo {
+  background-color: #ffffff;
+  border: 2px solid var(--duo-border);
+  border-radius: 16px;
+}
+
+/* =====================================================
+   BADGE PILL — stat chips in header
+   ===================================================== */
+.pill-duo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 0.9375rem;   /* 15px */
+  border: 2px solid transparent;
+}
+
+/* =====================================================
+   SCROLLBAR HIDE
+   ===================================================== */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* =====================================================
+   FADE-IN ANIMATION
+   ===================================================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}

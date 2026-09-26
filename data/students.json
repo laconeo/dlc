@@ -1,0 +1,179 @@
+[
+  {
+    "id": "stud-1790114942165",
+    "email": "daniel.perez@test.org",
+    "password": "password123",
+    "firstName": "Daniel",
+    "lastName": "P�rez",
+    "name": "Daniel P�rez",
+    "seminaryClass": "Barrio Central",
+    "avatarSeed": "Daniel",
+    "completedDays": [],
+    "currentStreak": 0,
+    "highestStreak": 0,
+    "unlockedBadgeIds": [],
+    "notes": {},
+    "createdAt": "2026-09-22T22:09:02.165Z",
+    "updatedAt": "2026-09-22T22:09:02.165Z"
+  },
+  {
+    "id": "stud-1790097346859",
+    "email": "joven@seminario.org",
+    "name": "Joven de Seminario",
+    "seminaryClass": "Seminario - Antiguo Testamento",
+    "avatarSeed": "Joven de Seminario",
+    "completedDays": [],
+    "currentStreak": 0,
+    "highestStreak": 0,
+    "unlockedBadgeIds": [],
+    "notes": {},
+    "createdAt": "2026-09-22T17:15:46.859Z",
+    "updatedAt": "2026-09-22T17:15:46.859Z"
+  },
+  {
+    "id": "stud-1",
+    "email": "lucas.romero@seminario.org",
+    "name": "Lucas Romero",
+    "seminaryClass": "Clase Matutina - Barrio Central",
+    "avatarSeed": "Lucas",
+    "completedDays": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "currentStreak": 14,
+    "highestStreak": 14,
+    "unlockedBadgeIds": [
+      "badge-abraham",
+      "badge-isaac"
+    ],
+    "lastCompletedDate": "2026-10-11",
+    "notes": {
+      "1": "Sentí mucho valor al leer Josué 1.",
+      "7": "Hermosa experiencia con la oración de Ana."
+    },
+    "createdAt": "2026-09-28T07:15:00.000Z",
+    "updatedAt": "2026-10-11T20:30:00.000Z",
+    "password": "seminario123"
+  },
+  {
+    "id": "stud-2",
+    "email": "valentina.silva@seminario.org",
+    "name": "Valentina Silva",
+    "seminaryClass": "Clase Vespertina - Estaca Sur",
+    "avatarSeed": "Valentina",
+    "completedDays": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ],
+    "currentStreak": 21,
+    "highestStreak": 21,
+    "unlockedBadgeIds": [
+      "badge-abraham",
+      "badge-isaac",
+      "badge-jacob"
+    ],
+    "lastCompletedDate": "2026-10-18",
+    "notes": {
+      "18": "Ester me inspiró a ser más valiente en el colegio."
+    },
+    "createdAt": "2026-09-28T08:00:00.000Z",
+    "updatedAt": "2026-10-18T19:45:00.000Z",
+    "password": "seminario123"
+  },
+  {
+    "id": "stud-3",
+    "email": "mateo.gomez@seminario.org",
+    "name": "Mateo Gómez",
+    "seminaryClass": "Clase Matutina - Barrio Central",
+    "avatarSeed": "Mateo",
+    "completedDays": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "currentStreak": 7,
+    "highestStreak": 7,
+    "unlockedBadgeIds": [
+      "badge-abraham"
+    ],
+    "lastCompletedDate": "2026-10-04",
+    "notes": {},
+    "createdAt": "2026-09-28T09:20:00.000Z",
+    "updatedAt": "2026-10-04T18:10:00.000Z",
+    "password": "seminario123"
+  },
+  {
+    "id": "stud-4",
+    "email": "sofia.morales@seminario.org",
+    "name": "Sofía Morales",
+    "seminaryClass": "Clase Temprana - Barrio Norte",
+    "avatarSeed": "Sofia",
+    "completedDays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "currentStreak": 5,
+    "highestStreak": 5,
+    "unlockedBadgeIds": [],
+    "lastCompletedDate": "2026-10-02",
+    "notes": {},
+    "createdAt": "2026-09-28T10:00:00.000Z",
+    "updatedAt": "2026-10-02T21:00:00.000Z"
+  },
+  {
+    "id": "stud-5",
+    "email": "benjamin.castro@seminario.org",
+    "name": "Benjamín Castro",
+    "seminaryClass": "Clase Vespertina - Estaca Sur",
+    "avatarSeed": "Benjamin",
+    "completedDays": [
+      1,
+      2
+    ],
+    "currentStreak": 2,
+    "highestStreak": 3,
+    "unlockedBadgeIds": [],
+    "lastCompletedDate": "2026-09-30",
+    "notes": {},
+    "createdAt": "2026-09-28T11:00:00.000Z",
+    "updatedAt": "2026-09-22T22:16:33.812Z"
+  }
+]

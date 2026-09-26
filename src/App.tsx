@@ -215,6 +215,7 @@ export default function App() {
               onSwitchAccount={() => setStudent(null)}
               onLogout={handleLogout}
               onOpenAdmin={() => setCurrentPage('instructor')}
+              onStudentUpdated={(updated) => setStudent(updated)}
             />
           )}
 

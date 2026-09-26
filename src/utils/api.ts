@@ -513,6 +513,85 @@ export async function saveStudentNote(studentId: string, day: number, note: stri
   throw new Error('No se pudo guardar la nota.');
 }
 
+// ── UPDATE STUDENT PROFILE ───────────────────────────────────────────────────
+
+export interface UpdateProfileParams {
+  firstName?: string;
+  lastName?: string;
+  ward?: string;
+  seminaryClass?: string;
+}
+
+export async function updateStudentProfile(
+  studentId: string,
+  params: UpdateProfileParams
+): Promise<Student> {
+  const payload: any = {
+    updated_at: new Date().toISOString(),
+  };
+  if (params.firstName !== undefined) payload.first_name = params.firstName.trim();
+  if (params.lastName !== undefined) payload.last_name = params.lastName.trim();
+  if (params.ward !== undefined) payload.ward = params.ward.trim();
+  if (params.seminaryClass !== undefined) payload.seminary_class = params.seminaryClass.trim();
+
+  try {
+    const { error: updateError } = await supabase
+      .from('students')
+      .update(payload)
+      .eq('id', studentId);
+
+    if (updateError) {
+      console.warn('Error updating students table in Supabase:', updateError);
+    }
+
+    // Actualizar metadata en Supabase Auth si es posible
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          name: payload.first_name && payload.last_name ? `${payload.first_name} ${payload.last_name}` : undefined,
+          ward: payload.ward,
+          seminary_class: payload.seminary_class,
+        },
+      });
+    } catch (e) {
+      console.warn('Could not update auth user metadata:', e);
+    }
+
+    // Obtener datos actualizados desde students_full
+    const { data: fullRow } = await supabase
+      .from('students_full')
+      .select('*')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (fullRow) {
+      const updatedStudent = rowToStudent(fullRow);
+      saveLocalStudent(updatedStudent);
+      return updatedStudent;
+    }
+  } catch (err) {
+    console.warn('updateStudentProfile server call failed, using local update:', err);
+  }
+
+  // Fallback local
+  const local = getLocalStudent();
+  if (local && local.id === studentId) {
+    if (params.firstName !== undefined) local.firstName = params.firstName.trim();
+    if (params.lastName !== undefined) local.lastName = params.lastName.trim();
+    if (local.firstName || local.lastName) {
+      local.name = `${local.firstName || ''} ${local.lastName || ''}`.trim();
+    }
+    if (params.ward !== undefined) local.ward = params.ward.trim();
+    if (params.seminaryClass !== undefined) local.seminaryClass = params.seminaryClass.trim();
+    saveLocalStudent(local);
+    return local;
+  }
+
+  throw new Error('No se pudo guardar la información del perfil.');
+}
+
 // ── INSTRUCTOR DATA ───────────────────────────────────────────────────────────
 
 export async function fetchInstructorData(): Promise<{ students: Student[]; stats: InstructorStats }> {

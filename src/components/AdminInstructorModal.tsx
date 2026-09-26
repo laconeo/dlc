@@ -18,7 +18,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
-import { fetchInstructorData, resetSeedStudents, toggleStudentDay, updateStudentRole } from '../utils/api';
+import { fetchInstructorData, toggleStudentDay, updateStudentRole } from '../utils/api';
 import { SPECIAL_BADGES } from '../data/readings';
 
 interface AdminInstructorModalProps {
@@ -101,18 +101,12 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   }, [hasAccess]);
 
-  const handleResetSeeds = async () => {
-    if (confirm('¿Deseas restaurar la lista de alumnos de prueba para demostración?')) {
-      try {
-        const fresh = await resetSeedStudents();
-        setStudents(fresh);
-        setActionMessage('Lista de alumnos restablecida exitosamente.');
-        setTimeout(() => setActionMessage(null), 3000);
-        if (onStudentUpdated) onStudentUpdated();
-      } catch {
-        alert('Error al restablecer alumnos');
-      }
-    }
+  const handleRefreshData = async () => {
+    setActionMessage('Actualizando lista de estudiantes reales...');
+    await loadData();
+    setActionMessage('Lista actualizada.');
+    setTimeout(() => setActionMessage(null), 2500);
+    if (onStudentUpdated) onStudentUpdated();
   };
 
   const handleToggleDayForStudent = async (studentId: string, day: number) => {
@@ -382,14 +376,14 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           ) : filteredStudents.length === 0 ? (
             <div
               className="rounded-2xl text-center"
-              style={{ padding: '32px 20px', background: '#ffffff', border: '2px solid #e5e5e5' }}
+              style={{ padding: '36px 20px', background: '#ffffff', border: '2px solid #e5e5e5' }}
             >
-              <Users style={{ width: 40, height: 40, color: '#e5e5e5', margin: '0 auto 12px' }} />
-              <p style={{ fontSize: 15, fontWeight: 700, color: '#3c3c3c' }}>
-                No se encontraron alumnos.
+              <Users style={{ width: 44, height: 44, color: '#afafaf', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#3c3c3c' }}>
+                No hay más alumnos registrados aún
               </p>
-              <p style={{ fontSize: 13, color: '#afafaf', marginTop: 6 }}>
-                Cuando los alumnos se registren en la app aparecerán aquí.
+              <p style={{ fontSize: 13, color: '#777777', marginTop: 6, maxWidth: 320, marginInline: 'auto' }}>
+                Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.
               </p>
             </div>
           ) : (
@@ -719,8 +713,10 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           }}
         >
           <button
-            onClick={handleResetSeeds}
-            className="flex items-center gap-2 font-display font-bold rounded-xl"
+            id="instructor-refresh-students-btn"
+            onClick={handleRefreshData}
+            disabled={loading}
+            className="flex items-center gap-2 font-display font-bold rounded-xl active:scale-95 transition-transform"
             style={{
               height: 40,
               paddingLeft: 14,
@@ -728,12 +724,12 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
               fontSize: 14,
               background: '#f7f7f7',
               border: '2px solid #e5e5e5',
-              color: '#777777',
+              color: '#3c3c3c',
               cursor: 'pointer',
             }}
           >
             <RotateCcw style={{ width: 16, height: 16 }} />
-            Restablecer Demo
+            <span>Actualizar Lista</span>
           </button>
 
           <button

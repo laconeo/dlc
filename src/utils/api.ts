@@ -377,13 +377,6 @@ export async function loginStudent(email: string, password?: string): Promise<St
       return local;
     }
 
-    const seeds = getStoredInstructorStudents();
-    const matched = seeds.find(s => s.email.toLowerCase() === cleanEmail);
-    if (matched) {
-      saveLocalStudent(matched);
-      return matched;
-    }
-
     throw new Error('No se encontró el alumno o no hay conexión con el servidor.');
   }
 }
@@ -524,36 +517,60 @@ export async function saveStudentNote(studentId: string, day: number, note: stri
 
 export async function fetchInstructorData(): Promise<{ students: Student[]; stats: InstructorStats }> {
   try {
-    // Leer todos los alumnos (requiere que el usuario sea instructor en RLS)
+    // 1. Intentar purgar de forma proactiva estudiantes de prueba demo en Supabase
+    try {
+      await supabase
+        .from('students')
+        .delete()
+        .or('email.ilike.%@seminario.org,id.like.11111111-0000-0000-0000-%');
+    } catch {}
+
+    // 2. Leer todos los alumnos reales (requiere que el usuario sea instructor en RLS)
     const { data: rows, error } = await supabase
       .from('students_full')
       .select('*')
-      .order('current_streak', { ascending: false });
+      .not('email', 'ilike', '%@seminario.org')
+      .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
 
-    const students = (rows ?? []).map(rowToStudent);
+    // 3. Filtrar estrictamente solo estudiantes reales (descartar IDs o correos de prueba)
+    const rawStudents = (rows ?? []).map(rowToStudent);
+    const students = rawStudents.filter((s) => {
+      const email = (s.email || '').toLowerCase().trim();
+      const id = (s.id || '').trim();
+      const isDemo =
+        email.endsWith('@seminario.org') ||
+        id.startsWith('11111111-') ||
+        id.startsWith('stud-');
+      return !isDemo;
+    });
 
-    // Stats calculadas en cliente (o puedes usar la vista instructor_stats)
+    // Limpiar cualquier caché local obsoleta de demos
+    try {
+      localStorage.removeItem(LOCAL_INSTRUCTOR_STUDENTS_KEY);
+    } catch {}
+
+    // 4. Estadísticas calculadas exclusivamente con estudiantes reales
     const totalStudents = students.length;
     const totalDaysRead = students.reduce((acc, s) => acc + s.completedDays.length, 0);
-    const averageStreak = totalStudents > 0
-      ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
-      : 0;
+    const averageStreak =
+      totalStudents > 0
+        ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
+        : 0;
 
     return {
       students,
       stats: {
         totalStudents,
-        activeToday: students.filter(s => s.completedDays.length > 0).length,
+        activeToday: students.filter((s) => s.completedDays.length > 0).length,
         averageStreak,
-        completed30DaysCount: students.filter(s => s.completedDays.length >= 30).length,
+        completed30DaysCount: students.filter((s) => s.completedDays.length >= 30).length,
         totalDaysRead,
       },
     };
-
   } catch (err) {
-    console.warn('Supabase fetchInstructorData failed, using local fallback:', err);
+    console.warn('Supabase fetchInstructorData fallback:', err);
     return fetchInstructorDataLocal();
   }
 }
@@ -598,7 +615,7 @@ export async function updateStudentRole(studentId: string, newRole: UserRole): P
   // 3. Sincronizar caché local
   try {
     const stored = getStoredInstructorStudents();
-    const idx = stored.findIndex(s => s.id === studentId);
+    const idx = stored.findIndex((s) => s.id === studentId);
     if (idx !== -1) {
       stored[idx].role = newRole;
       localStorage.setItem(LOCAL_INSTRUCTOR_STUDENTS_KEY, JSON.stringify(stored));
@@ -620,12 +637,26 @@ export async function logoutStudent(): Promise<void> {
   clearLocalStudent();
 }
 
-// ── RESET SEEDS (dev only) ────────────────────────────────────────────────────
+// ── LIMPIEZA DE DEMOS ─────────────────────────────────────────────────────────
+
+export async function cleanDemoStudents(): Promise<Student[]> {
+  try {
+    await supabase.from('student_unlocked_badges').delete().like('student_id', '11111111-0000-0000-0000-%');
+    await supabase.from('student_notes').delete().like('student_id', '11111111-0000-0000-0000-%');
+    await supabase.from('student_completed_days').delete().like('student_id', '11111111-0000-0000-0000-%');
+    await supabase.from('students').delete().or('email.ilike.%@seminario.org,id.like.11111111-0000-0000-0000-%');
+  } catch (err) {
+    console.warn('cleanDemoStudents Supabase notice:', err);
+  }
+  try {
+    localStorage.removeItem(LOCAL_INSTRUCTOR_STUDENTS_KEY);
+  } catch {}
+  const data = await fetchInstructorData();
+  return data.students;
+}
 
 export async function resetSeedStudents(): Promise<Student[]> {
-  console.warn('resetSeedStudents: en producción los seeds se manejan desde el SQL schema.');
-  localStorage.setItem(LOCAL_INSTRUCTOR_STUDENTS_KEY, JSON.stringify(FALLBACK_SEED_STUDENTS));
-  return FALLBACK_SEED_STUDENTS;
+  return cleanDemoStudents();
 }
 
 // ── Compat (backward-compatible) ─────────────────────────────────────────────
@@ -641,119 +672,56 @@ export async function loginOrRegisterStudent(email: string, name?: string, semin
   }
 }
 
-// ── FALLBACK LOCAL (offline / sin Supabase) ───────────────────────────────────
-
-const FALLBACK_SEED_STUDENTS: Student[] = [
-  {
-    id: 'stud-1',
-    email: 'lucas.romero@seminario.org',
-    name: 'Lucas Romero',
-    role: 'alumno',
-    seminaryClass: 'Clase Matutina - Barrio Central',
-    avatarSeed: 'Lucas',
-    completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
-    currentStreak: 14,
-    highestStreak: 14,
-    unlockedBadgeIds: ['badge-abraham','badge-isaac'],
-    lastCompletedDate: '2026-10-11',
-    notes: { 1: 'Sentí mucho valor al leer Josué 1.', 7: 'Hermosa experiencia con la oración de Ana.' },
-    createdAt: '2026-09-28T07:15:00.000Z',
-    updatedAt: '2026-10-11T20:30:00.000Z',
-  },
-  {
-    id: 'stud-2',
-    email: 'valentina.silva@seminario.org',
-    name: 'Valentina Silva',
-    role: 'alumno',
-    seminaryClass: 'Clase Vespertina - Estaca Sur',
-    avatarSeed: 'Valentina',
-    completedDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21],
-    currentStreak: 21,
-    highestStreak: 21,
-    unlockedBadgeIds: ['badge-abraham','badge-isaac','badge-jacob'],
-    lastCompletedDate: '2026-10-18',
-    notes: { 18: 'Ester me inspiró a ser más valiente en el colegio.' },
-    createdAt: '2026-09-28T08:00:00.000Z',
-    updatedAt: '2026-10-18T19:45:00.000Z',
-  },
-  {
-    id: 'stud-3',
-    email: 'mateo.gomez@seminario.org',
-    name: 'Mateo Gómez',
-    role: 'alumno',
-    seminaryClass: 'Clase Matutina - Barrio Central',
-    avatarSeed: 'Mateo',
-    completedDays: [1,2,3,4,5,6,7],
-    currentStreak: 7,
-    highestStreak: 7,
-    unlockedBadgeIds: ['badge-abraham'],
-    lastCompletedDate: '2026-10-04',
-    notes: {},
-    createdAt: '2026-09-28T09:20:00.000Z',
-    updatedAt: '2026-10-04T18:10:00.000Z',
-  },
-  {
-    id: 'stud-4',
-    email: 'sofia.morales@seminario.org',
-    name: 'Sofía Morales',
-    role: 'alumno',
-    seminaryClass: 'Clase Temprana - Barrio Norte',
-    avatarSeed: 'Sofia',
-    completedDays: [1,2,3,4,5],
-    currentStreak: 5,
-    highestStreak: 5,
-    unlockedBadgeIds: [],
-    lastCompletedDate: '2026-10-02',
-    notes: {},
-    createdAt: '2026-09-28T10:00:00.000Z',
-    updatedAt: '2026-10-02T21:00:00.000Z',
-  },
-  {
-    id: 'stud-5',
-    email: 'benjamin.castro@seminario.org',
-    name: 'Benjamín Castro',
-    role: 'alumno',
-    seminaryClass: 'Clase Vespertina - Estaca Sur',
-    avatarSeed: 'Benjamin',
-    completedDays: [1,2,3],
-    currentStreak: 3,
-    highestStreak: 3,
-    unlockedBadgeIds: [],
-    lastCompletedDate: '2026-09-30',
-    notes: {},
-    createdAt: '2026-09-28T11:00:00.000Z',
-    updatedAt: '2026-09-30T17:30:00.000Z',
-  },
-];
+// ── FALLBACK LOCAL (solo alumnos reales locales) ──────────────────────────────
 
 function getStoredInstructorStudents(): Student[] {
   try {
     const raw = localStorage.getItem(LOCAL_INSTRUCTOR_STUDENTS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed: Student[] = JSON.parse(raw);
+      return parsed.filter((s) => {
+        const email = (s.email || '').toLowerCase().trim();
+        const id = (s.id || '').trim();
+        return (
+          !email.endsWith('@seminario.org') &&
+          !id.startsWith('11111111-') &&
+          !id.startsWith('stud-')
+        );
+      });
+    }
   } catch {}
-  return FALLBACK_SEED_STUDENTS;
+  return [];
 }
 
 function fetchInstructorDataLocal(): { students: Student[]; stats: InstructorStats } {
   const students = getStoredInstructorStudents();
   const current = getLocalStudent();
-  if (current && !students.some(s => s.id === current.id)) {
-    students.unshift(current);
+  if (current) {
+    const email = (current.email || '').toLowerCase().trim();
+    const id = (current.id || '').trim();
+    const isDemo =
+      email.endsWith('@seminario.org') ||
+      id.startsWith('11111111-') ||
+      id.startsWith('stud-');
+    if (!isDemo && !students.some((s) => s.id === current.id)) {
+      students.unshift(current);
+    }
   }
 
   const totalStudents = students.length;
   const totalDaysRead = students.reduce((acc, s) => acc + s.completedDays.length, 0);
-  const averageStreak = totalStudents > 0
-    ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
-    : 0;
+  const averageStreak =
+    totalStudents > 0
+      ? Math.round((students.reduce((acc, s) => acc + s.currentStreak, 0) / totalStudents) * 10) / 10
+      : 0;
 
   return {
     students,
     stats: {
       totalStudents,
-      activeToday: students.filter(s => s.completedDays.length > 0).length,
+      activeToday: students.filter((s) => s.completedDays.length > 0).length,
       averageStreak,
-      completed30DaysCount: students.filter(s => s.completedDays.length >= 30).length,
+      completed30DaysCount: students.filter((s) => s.completedDays.length >= 30).length,
       totalDaysRead,
     },
   };

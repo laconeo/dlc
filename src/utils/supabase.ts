@@ -4,10 +4,14 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Faltan variables de entorno VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. ' +
-    'Crea un archivo .env en la raíz del proyecto.'
+  console.warn(
+    '[DLC] Variables VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY no encontradas. ' +
+    'La app funcionará en modo offline con datos locales.'
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use a placeholder URL when env vars are missing so the app renders
+export const supabase = createClient(
+  supabaseUrl  || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+);

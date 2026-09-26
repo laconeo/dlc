@@ -151,20 +151,6 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     return () => clearInterval(interval);
   }, [registeredStudent, onSuccess]);
 
-  // Bloquear scroll global del documento mientras el modal esté abierto
-  useEffect(() => {
-    if (isOpen) {
-      const prevBodyOverflow = document.body.style.overflow;
-      const prevHtmlOverflow = document.documentElement.style.overflow;
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prevBodyOverflow;
-        document.documentElement.style.overflow = prevHtmlOverflow;
-      };
-    }
-  }, [isOpen]);
-
   const resetForm = () => { setError(null); setPassword(''); setConfirmPassword(''); };
   const switchMode = (m: AuthMode) => { setMode(m); resetForm(); };
 
@@ -212,8 +198,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
 
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col justify-between animate-fadeIn"
-        style={{ background: '#ffffff', maxWidth: 480, margin: '0 auto', left: 0, right: 0 }}
+        className="w-full h-full flex flex-col justify-between animate-fadeIn bg-white overflow-hidden"
       >
         {/* Top Celebration Strip */}
         <div
@@ -337,16 +322,12 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     );
   }
 
-  /* ── LAYOUT: Formularios normales ── */
+  /* ── LAYOUT: Formularios normales (Página Principal de Autenticación) ── */
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-center bg-white sm:bg-black/50 overflow-hidden animate-fadeIn"
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn relative"
       style={{ overscrollBehavior: 'none' }}
     >
-      <div
-        className="w-full max-w-md h-full max-h-[100dvh] bg-white flex flex-col overflow-hidden relative sm:shadow-2xl sm:border-x sm:border-[#e5e5e5]"
-        style={{ overscrollBehavior: 'none' }}
-      >
       {/* ══ STICKY TOP HEADER ══ */}
       <div
         style={{
@@ -655,7 +636,6 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
             )}
           </form>
         )}
-      </div>
       </div>
     </div>
   );

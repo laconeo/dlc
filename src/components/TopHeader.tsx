@@ -22,7 +22,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
   return (
     <header
-      className="sticky top-0 z-30 bg-white border-b-2 border-[#e5e5e5] px-3"
+      className="shrink-0 w-full bg-white border-b-2 border-[#e5e5e5] px-3 z-30"
       style={{ paddingTop: 'max(10px, env(safe-area-inset-top))', paddingBottom: '10px' }}
     >
       <div className="flex items-center justify-between gap-2 max-w-md mx-auto">

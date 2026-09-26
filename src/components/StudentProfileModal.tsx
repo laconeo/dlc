@@ -5,7 +5,7 @@ import { SPECIAL_BADGES } from '../data/readings';
 
 interface StudentProfileModalProps {
   student: Student | null;
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onSwitchAccount: () => void;
   onLogout?: () => void;
@@ -14,13 +14,13 @@ interface StudentProfileModalProps {
 
 export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   student,
-  isOpen,
+  isOpen = true,
   onClose,
   onSwitchAccount,
   onLogout,
   onOpenAdmin,
 }) => {
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   const isInstructor = isUserInstructor(student);
   const isSuperAdmin = (student?.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
@@ -38,9 +38,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   return (
     <div
-      className="absolute inset-0 z-40 flex flex-col bg-white overflow-y-auto no-scrollbar animate-fadeIn"
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
     >
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 min-h-0 overflow-y-auto no-scrollbar">
         {/* ── Header: Duolingo purple ── */}
         <div
           style={{

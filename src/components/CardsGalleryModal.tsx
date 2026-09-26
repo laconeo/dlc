@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { X, Award, Sparkles, Check, Lock, Shield } from 'lucide-react';
+import { X, Award, Sparkles, Check, Lock, Shield, ArrowLeft } from 'lucide-react';
 import { Student, SpecialBadge } from '../types';
 import { SPECIAL_BADGES } from '../data/readings';
 
 interface CardsGalleryModalProps {
   student: Student | null;
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   selectedBadge?: SpecialBadge | null;
 }
@@ -20,11 +20,11 @@ const BADGE_COLORS: Record<string, { color: string; bg: string; border: string; 
 
 export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
   student,
-  isOpen,
+  isOpen = true,
   onClose,
   selectedBadge: initialSelectedBadge,
 }) => {
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   const [activeBadge, setActiveBadge] = useState<SpecialBadge>(
     initialSelectedBadge || SPECIAL_BADGES.abraham
@@ -45,64 +45,55 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center overflow-y-auto animate-fadeIn"
-      style={{ background: 'rgba(0,0,0,0.65)' }}
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
     >
+      {/* ── Header ── */}
       <div
-        className="relative w-full sm:max-w-md flex flex-col overflow-hidden"
         style={{
-          background: '#ffffff',
-          borderRadius: '24px 24px 0 0',
-          border: '2px solid #e5e5e5',
-          maxHeight: '93dvh',
+          background: '#3c3c3c',
+          borderBottom: '3px solid #222222',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
         }}
       >
-        {/* ── Header ── */}
-        <div
-          style={{
-            background: '#3c3c3c',
-            borderBottom: '3px solid #222222',
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexShrink: 0,
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: '#ffc800' }}
-            >
-              <Award style={{ width: 22, height: 22, color: '#3c3c3c' }} />
-            </div>
-            <div>
-              <h2
-                className="font-display font-bold text-white"
-                style={{ fontSize: 17, lineHeight: 1.2 }}
-              >
-                Álbum de Cartas de Racha
-              </h2>
-              <p style={{ fontSize: 12, color: '#afafaf' }}>
-                Cartas plateadas de patriarcas y carta dorada
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
           <button
             id="close-cards-gallery-btn"
             onClick={onClose}
             className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
             style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.25)' }}
+            aria-label="Volver al camino"
           >
-            <X style={{ width: 18, height: 18, color: '#ffffff' }} />
+            <ArrowLeft style={{ width: 18, height: 18, color: '#ffffff' }} />
           </button>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: '#ffc800' }}
+          >
+            <Award style={{ width: 22, height: 22, color: '#3c3c3c' }} />
+          </div>
+          <div>
+            <h2
+              className="font-display font-bold text-white"
+              style={{ fontSize: 17, lineHeight: 1.2 }}
+            >
+              Álbum de Cartas
+            </h2>
+            <p style={{ fontSize: 12, color: '#afafaf' }}>
+              {unlockedBadgeIds.length} de 4 desbloqueadas
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* ── Badge Tab Selector ── */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+      {/* ── Badge Tab Selector ── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 8,
             padding: '12px',
             background: '#f7f7f7',
@@ -333,12 +324,11 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
           <button
             onClick={onClose}
             className="btn-duo-green font-display w-full flex items-center justify-center"
-            style={{ height: 52, borderRadius: 16, fontSize: 15 }}
+            style={{ height: 48, borderRadius: 16, fontSize: 15 }}
           >
-            Volver al Camino
+            ← Volver al Camino
           </button>
         </div>
       </div>
-    </div>
   );
 };

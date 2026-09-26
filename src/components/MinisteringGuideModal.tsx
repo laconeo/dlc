@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft, Heart, Share2, UserPlus, CheckCircle } from 'lucide-react';
 
 interface MinisteringGuideModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
 }
 
@@ -47,16 +47,16 @@ const BENEFITS = [
 ];
 
 export const MinisteringGuideModal: React.FC<MinisteringGuideModalProps> = ({
-  isOpen,
+  isOpen = true,
   onClose,
 }) => {
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   return (
     <div
-      className="absolute inset-0 z-40 flex flex-col bg-white overflow-hidden animate-fadeIn"
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
     >
-      <div className="relative flex flex-col h-full">
+      <div className="relative flex flex-col h-full flex-1 min-h-0">
         {/* ── Header: Duolingo red/love ── */}
         <div
           style={{

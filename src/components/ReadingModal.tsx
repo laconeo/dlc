@@ -105,9 +105,9 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
 
   return (
     <div
-      className="absolute inset-0 z-40 flex flex-col bg-white overflow-hidden animate-fadeIn"
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
     >
-      <div className="relative flex flex-col h-full">
+      <div className="relative flex flex-col h-full flex-1 min-h-0">
         {/* ── Header — solid Duolingo blue ── */}
         <div
           style={{

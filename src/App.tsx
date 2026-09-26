@@ -12,24 +12,18 @@ import { DayReading, Student, SpecialBadge } from './types';
 import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent, saveStudentNote } from './utils/api';
 import { SPECIAL_BADGES } from './data/readings';
 
+export type AppPage = 'path' | 'reading' | 'cards' | 'ministering' | 'profile' | 'instructor';
+
 export default function App() {
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Active navigation tab
-  const [currentTab, setCurrentTab] = useState<NavTab>('path');
+  // Active page view
+  const [currentPage, setCurrentPage] = useState<AppPage>('path');
 
-  // Modals state
+  // Selected item states
   const [selectedReading, setSelectedReading] = useState<DayReading | null>(null);
-  const [isReadingModalOpen, setIsReadingModalOpen] = useState(false);
-
   const [selectedBadge, setSelectedBadge] = useState<SpecialBadge | null>(null);
-  const [isCardsModalOpen, setIsCardsModalOpen] = useState(false);
-
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isMinisteringModalOpen, setIsMinisteringModalOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Load existing student or prompt login/register
   useEffect(() => {
@@ -56,12 +50,11 @@ export default function App() {
           }
         }
 
-        // 3. Si no hay sesión válida, abrir modal de login/registro
+        // 3. Sin sesión activa
         setStudent(null);
-        setIsAuthModalOpen(true);
       } catch (err) {
         console.warn('Initialization error:', err);
-        setIsAuthModalOpen(true);
+        setStudent(null);
       } finally {
         setLoading(false);
       }
@@ -72,14 +65,11 @@ export default function App() {
   // Handlers
   const handleOpenReading = (reading: DayReading) => {
     setSelectedReading(reading);
-    setIsReadingModalOpen(true);
+    setCurrentPage('reading');
   };
 
   const handleToggleDay = async (day: number, note?: string) => {
-    if (!student) {
-      setIsAuthModalOpen(true);
-      return;
-    }
+    if (!student) return;
     const updated = await toggleStudentDay(student.id, day, note);
     setStudent(updated);
   };
@@ -92,141 +82,166 @@ export default function App() {
 
   const handleOpenBadge = (badge: SpecialBadge) => {
     setSelectedBadge(badge);
-    setIsCardsModalOpen(true);
+    setCurrentPage('cards');
   };
 
   const handleSelectTab = (tab: NavTab) => {
-    setCurrentTab(tab);
-    if (tab === 'cards') {
-      setIsCardsModalOpen(true);
-    } else if (tab === 'ministering') {
-      setIsMinisteringModalOpen(true);
-    } else if (tab === 'profile') {
-      setIsProfileModalOpen(true);
-    }
+    setCurrentPage(tab);
   };
 
   const handleAuthSuccess = (newStudent: Student) => {
     setStudent(newStudent);
-    setIsAuthModalOpen(false);
+    setCurrentPage('path');
   };
 
   const handleLogout = async () => {
     await logoutStudent();
     setStudent(null);
-    setIsProfileModalOpen(false);
-    setIsAuthModalOpen(true);
+    setCurrentPage('path');
   };
 
+  // ── 1. LOADING SCREEN ──
+  if (loading) {
+    return (
+      <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#e5e5e5] flex justify-center items-center overflow-hidden">
+        <div className="w-full max-w-md h-full bg-white flex flex-col items-center justify-center gap-3 sm:shadow-xl sm:border-x sm:border-[#e5e5e5]">
+          <span className="text-5xl animate-bounce">📖</span>
+          <p className="font-display font-bold text-base text-[#3c3c3c]">
+            Cargando «Detente, Lee, Conecta»...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 2. STANDALONE FULL-PAGE AUTH (LOGIN / REGISTER) ──
+  if (!student) {
+    return (
+      <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#e5e5e5] flex justify-center overflow-hidden">
+        <div className="w-full max-w-md h-full bg-white flex flex-col relative sm:shadow-xl sm:border-x sm:border-[#e5e5e5] overflow-hidden">
+          <StudentAuthModal
+            isOpen={true}
+            currentStudent={null}
+            onSuccess={handleAuthSuccess}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Map currentPage to bottom nav tab when applicable
+  const currentTab: NavTab =
+    currentPage === 'cards' || currentPage === 'ministering' || currentPage === 'profile'
+      ? currentPage
+      : 'path';
+
+  const showBottomNav =
+    currentPage === 'path' ||
+    currentPage === 'cards' ||
+    currentPage === 'ministering' ||
+    currentPage === 'profile';
+
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-[#e5e5e5] flex justify-center selection:bg-[#1cb0f6] selection:text-white">
-      {/* Mobile-first main application container */}
-      <div className="w-full max-w-md min-h-screen min-h-[100dvh] bg-white flex flex-col relative sm:shadow-xl sm:border-x sm:border-[#e5e5e5]">
+    <div className="h-screen h-[100dvh] max-h-[100dvh] bg-[#e5e5e5] flex justify-center selection:bg-[#1cb0f6] selection:text-white overflow-hidden">
+      {/* Mobile-first main application frame */}
+      <div className="w-full max-w-md h-full flex flex-col relative sm:shadow-xl sm:border-x sm:border-[#e5e5e5] bg-white overflow-hidden">
 
-        {/* Top Sticky Header */}
-        <TopHeader
-          student={student}
-          onOpenAdmin={() => setIsAdminModalOpen(true)}
-          onOpenBadges={() => {
-            setSelectedBadge(SPECIAL_BADGES.abraham);
-            setIsCardsModalOpen(true);
-          }}
-          onOpenProfile={() => setIsProfileModalOpen(true)}
-        />
+        {/* ── TOP HEADER (Only on main path) ── */}
+        {currentPage === 'path' && (
+          <TopHeader
+            student={student}
+            onOpenAdmin={() => setCurrentPage('instructor')}
+            onOpenBadges={() => {
+              setSelectedBadge(SPECIAL_BADGES.abraham);
+              setCurrentPage('cards');
+            }}
+            onOpenProfile={() => setCurrentPage('profile')}
+          />
+        )}
 
-        {/* Main Content Area */}
-        <main className={`flex-1 no-scrollbar ${isProfileModalOpen || isReadingModalOpen || isMinisteringModalOpen || isAuthModalOpen || !student ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          {loading ? (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3" style={{ color: '#afafaf' }}>
-              <span className="text-5xl animate-bounce">📖</span>
-              <p className="font-display font-bold" style={{ fontSize: 16, color: '#3c3c3c' }}>Cargando «Detente, Lee, Conecta»...</p>
-            </div>
-          ) : (
-            <PathView
+        {/* ── MAIN CONTENT AREA (PAGES) ── */}
+        <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
+          {/* PAGE 1: CAMINO DE LECTURAS (30 días con scroll suave y continuo) */}
+          {currentPage === 'path' && (
+            <main
+              id="path-main-scroll"
+              className="flex-1 min-h-0 overflow-y-auto no-scrollbar relative"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <PathView
+                student={student}
+                onSelectReading={handleOpenReading}
+                onOpenBadgeDetail={handleOpenBadge}
+              />
+            </main>
+          )}
+
+          {/* PAGE 2: DETALLE DE LECTURA (Página completa) */}
+          {currentPage === 'reading' && selectedReading && (
+            <ReadingModal
+              reading={selectedReading}
               student={student}
-              onSelectReading={handleOpenReading}
-              onOpenBadgeDetail={handleOpenBadge}
+              isOpen={true}
+              onClose={() => setCurrentPage('path')}
+              onToggleComplete={handleToggleDay}
+              onSaveNote={handleSaveNote}
             />
           )}
-        </main>
 
-        {/* Bottom Navigation */}
-        <BottomNav
-          currentTab={currentTab}
-          onSelectTab={handleSelectTab}
-          unlockedBadgesCount={student?.unlockedBadgeIds?.length || 0}
-        />
+          {/* PAGE 3: COLECCIÓN DE CARTAS (Página completa) */}
+          {currentPage === 'cards' && (
+            <CardsGalleryModal
+              student={student}
+              isOpen={true}
+              onClose={() => setCurrentPage('path')}
+              selectedBadge={selectedBadge}
+            />
+          )}
 
-        {/* MODALS */}
-        {/* Reading Modal */}
-        <ReadingModal
-          reading={selectedReading}
-          student={student}
-          isOpen={isReadingModalOpen}
-          onClose={() => setIsReadingModalOpen(false)}
-          onToggleComplete={handleToggleDay}
-          onSaveNote={handleSaveNote}
-        />
+          {/* PAGE 4: GUÍA DE MINISTRACIÓN (Página completa) */}
+          {currentPage === 'ministering' && (
+            <MinisteringGuideModal
+              isOpen={true}
+              onClose={() => setCurrentPage('path')}
+            />
+          )}
 
-        {/* Cards Gallery Modal */}
-        <CardsGalleryModal
-          student={student}
-          isOpen={isCardsModalOpen}
-          onClose={() => {
-            setIsCardsModalOpen(false);
-            if (currentTab === 'cards') setCurrentTab('path');
-          }}
-          selectedBadge={selectedBadge}
-        />
+          {/* PAGE 5: PERFIL DE ESTUDIANTE (Página completa) */}
+          {currentPage === 'profile' && (
+            <StudentProfileModal
+              student={student}
+              isOpen={true}
+              onClose={() => setCurrentPage('path')}
+              onSwitchAccount={() => setStudent(null)}
+              onLogout={handleLogout}
+              onOpenAdmin={() => setCurrentPage('instructor')}
+            />
+          )}
 
-        {/* Instructor Admin Modal */}
-        <AdminInstructorModal
-          isOpen={isAdminModalOpen}
-          currentStudent={student}
-          onClose={() => setIsAdminModalOpen(false)}
-          onStudentUpdated={() => {
-            if (student) {
-              const refreshed = getLocalStudent();
-              if (refreshed) setStudent(refreshed);
-            }
-          }}
-        />
+          {/* PAGE 6: PANEL DEL INSTRUCTOR (Página completa) */}
+          {currentPage === 'instructor' && (
+            <AdminInstructorModal
+              isOpen={true}
+              currentStudent={student}
+              onClose={() => setCurrentPage('path')}
+              onStudentUpdated={() => {
+                if (student) {
+                  const refreshed = getLocalStudent();
+                  if (refreshed) setStudent(refreshed);
+                }
+              }}
+            />
+          )}
+        </div>
 
-        {/* Student Auth Modal */}
-        <StudentAuthModal
-          isOpen={isAuthModalOpen}
-          currentStudent={student}
-          onSuccess={handleAuthSuccess}
-          onClose={student ? () => setIsAuthModalOpen(false) : undefined}
-        />
-
-        {/* Ministering Guide Modal */}
-        <MinisteringGuideModal
-          isOpen={isMinisteringModalOpen}
-          onClose={() => {
-            setIsMinisteringModalOpen(false);
-            if (currentTab === 'ministering') setCurrentTab('path');
-          }}
-        />
-
-        {/* Student Profile Modal */}
-        <StudentProfileModal
-          student={student}
-          isOpen={isProfileModalOpen}
-          onClose={() => {
-            setIsProfileModalOpen(false);
-            if (currentTab === 'profile') setCurrentTab('path');
-          }}
-          onSwitchAccount={() => {
-            setIsProfileModalOpen(false);
-            setIsAuthModalOpen(true);
-          }}
-          onLogout={handleLogout}
-          onOpenAdmin={() => {
-            setIsProfileModalOpen(false);
-            setIsAdminModalOpen(true);
-          }}
-        />
+        {/* ── BOTTOM NAVIGATION (Visible en las vistas principales de la app) ── */}
+        {showBottomNav && (
+          <BottomNav
+            currentTab={currentTab}
+            onSelectTab={handleSelectTab}
+            unlockedBadgesCount={student?.unlockedBadgeIds?.length || 0}
+          />
+        )}
       </div>
     </div>
   );

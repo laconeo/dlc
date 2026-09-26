@@ -47,7 +47,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 sm:max-w-md sm:left-1/2 sm:-translate-x-1/2 z-40 bg-white border-t-2 border-[#e5e5e5]"
+      className="shrink-0 w-full bg-white border-t-2 border-[#e5e5e5] z-30"
       style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
     >
       <div className="w-full flex items-stretch justify-around px-1 pt-1">

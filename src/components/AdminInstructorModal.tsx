@@ -16,13 +16,14 @@ import {
   Mail,
   Sparkles,
   UserCheck,
+  ArrowLeft,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
 import { fetchInstructorData, toggleStudentDay, updateStudentRole } from '../utils/api';
 import { SPECIAL_BADGES } from '../data/readings';
 
 interface AdminInstructorModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onStudentUpdated?: () => void;
   currentStudent?: Student | null;
@@ -194,83 +195,73 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     { id: 'recent' as const, label: 'Con lecturas', color: '#1cb0f6', bg: '#1cb0f6' },
   ];
 
+  if (isOpen === false) return null;
+
   if (!hasAccess) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn"
-        style={{ background: 'rgba(0,0,0,0.65)' }}
-      >
-        <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border-2 border-[#e5e5e5]">
-          <div className="w-16 h-16 rounded-full bg-[#ffeeee] border-2 border-[#ff4b4b] flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-[#ff4b4b]" />
-          </div>
-          <h3 className="font-display font-bold text-xl text-[#3c3c3c] mb-2">Acceso Restringido</h3>
-          <p className="text-sm text-[#777777] mb-6">
-            Esta sección es exclusiva para <strong>Instructores</strong>. Tu cuenta tiene rol de <strong>Alumno</strong>.
-          </p>
-          <button
-            onClick={onClose}
-            className="btn-duo-green w-full font-display font-bold py-3 rounded-xl"
-          >
-            Volver a la App
-          </button>
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-white animate-fadeIn text-center">
+        <div className="w-16 h-16 rounded-full bg-[#ffeeee] border-2 border-[#ff4b4b] flex items-center justify-center mx-auto mb-4">
+          <Shield className="w-8 h-8 text-[#ff4b4b]" />
         </div>
+        <h3 className="font-display font-bold text-xl text-[#3c3c3c] mb-2">Acceso Restringido</h3>
+        <p className="text-sm text-[#777777] mb-6">
+          Esta sección es exclusiva para <strong>Instructores</strong>. Tu cuenta tiene rol de <strong>Alumno</strong>.
+        </p>
+        <button
+          onClick={onClose}
+          className="btn-duo-green w-full font-display font-bold py-3 rounded-xl"
+        >
+          Volver a la App
+        </button>
       </div>
     );
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fadeIn"
-      style={{ background: 'rgba(0,0,0,0.65)' }}
+      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
     >
+      {/* ── Header: dark, Duolingo instructor style ── */}
       <div
-        className="relative w-full max-w-2xl flex flex-col overflow-hidden"
         style={{
-          background: '#ffffff',
-          borderRadius: 24,
-          border: '2px solid #e5e5e5',
-          maxHeight: '93dvh',
+          background: '#3c3c3c',
+          borderBottom: '3px solid #222222',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
         }}
       >
-        {/* ── Header: dark, Duolingo instructor style ── */}
-        <div
-          className="flex items-center justify-between"
-          style={{
-            background: '#3c3c3c',
-            borderBottom: '3px solid #222222',
-            padding: '16px 20px',
-            flexShrink: 0,
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: '#ffc800' }}
-            >
-              <Shield style={{ width: 22, height: 22, color: '#3c3c3c' }} />
-            </div>
-            <div>
-              <h2
-                className="font-display font-bold text-white"
-                style={{ fontSize: 18, lineHeight: 1.2 }}
-              >
-                Panel del Instructor
-              </h2>
-              <p style={{ fontSize: 12, color: '#afafaf' }}>
-                Lecturas · Rachas · Cartas ganadas
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
           <button
             id="close-instructor-admin-btn"
             onClick={onClose}
             className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
             style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.25)' }}
+            aria-label="Volver al camino"
           >
-            <X style={{ width: 18, height: 18, color: '#ffffff' }} />
+            <ArrowLeft style={{ width: 18, height: 18, color: '#ffffff' }} />
           </button>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: '#ffc800' }}
+          >
+            <Shield style={{ width: 22, height: 22, color: '#3c3c3c' }} />
+          </div>
+          <div>
+            <h2
+              className="font-display font-bold text-white"
+              style={{ fontSize: 18, lineHeight: 1.2 }}
+            >
+              Panel del Instructor
+            </h2>
+            <p style={{ fontSize: 12, color: '#afafaf' }}>
+              Lecturas · Rachas · Cartas ganadas
+            </p>
+          </div>
         </div>
+      </div>
 
         {/* ── Stats Row ── */}
         <div
@@ -751,6 +742,5 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
   );
 };

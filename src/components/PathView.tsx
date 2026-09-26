@@ -81,7 +81,7 @@ export const PathView: React.FC<PathViewProps> = ({
   const pct = Math.round((completedDays.length / 30) * 100);
 
   return (
-    <div className="pb-28 pt-3 px-4 max-w-md mx-auto">
+    <div className="pb-10 pt-3 px-4 max-w-md mx-auto">
 
       {/* ── Hero Card — clean white, Duolingo style ── */}
       <div

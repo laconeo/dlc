@@ -9,7 +9,7 @@ import { MinisteringGuideModal } from './components/MinisteringGuideModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { DayReading, Student, SpecialBadge } from './types';
-import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent } from './utils/api';
+import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent, saveStudentNote } from './utils/api';
 import { SPECIAL_BADGES } from './data/readings';
 
 export default function App() {
@@ -81,6 +81,12 @@ export default function App() {
       return;
     }
     const updated = await toggleStudentDay(student.id, day, note);
+    setStudent(updated);
+  };
+
+  const handleSaveNote = async (day: number, note: string) => {
+    if (!student) return;
+    const updated = await saveStudentNote(student.id, day, note);
     setStudent(updated);
   };
 
@@ -159,6 +165,7 @@ export default function App() {
           isOpen={isReadingModalOpen}
           onClose={() => setIsReadingModalOpen(false)}
           onToggleComplete={handleToggleDay}
+          onSaveNote={handleSaveNote}
         />
 
         {/* Cards Gallery Modal */}

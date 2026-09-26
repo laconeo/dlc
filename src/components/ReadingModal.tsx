@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowLeft, ExternalLink, CheckCircle, Clock, Heart, Share2, UserPlus, Flame, Sparkles } from 'lucide-react';
-import { DayReading, Student } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, ExternalLink, CheckCircle, Clock, Heart, Share2, UserPlus, Flame, Sparkles, AlertCircle, Shield } from 'lucide-react';
+import { DayReading, Student, isUserInstructor } from '../types';
 import { CHURCH_OT_URL } from '../data/readings';
 
 interface ReadingModalProps {
@@ -9,6 +9,7 @@ interface ReadingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onToggleComplete: (day: number, note?: string) => Promise<void>;
+  onSaveNote?: (day: number, note: string) => Promise<void>;
 }
 
 /* Pillar colors in Duolingo tokens */
@@ -19,12 +20,31 @@ const PILLAR_CONFIG: Record<string, { color: string; bg: string; border: string;
 };
 const defaultPillar = { color: '#ff4b4b', bg: '#fff0f0', border: '#ffc8c8', Icon: Heart };
 
+/**
+ * Calcula la diferencia en días calendario completos entre la fecha de lectura y hoy.
+ * > 0 : fecha en el futuro (adelantados)
+ * = 0 : fecha de hoy (se puede marcar)
+ * < 0 : fecha ya transcurrida (pasó el día)
+ */
+function getDayDifference(calendarDateStr: string): number {
+  if (!calendarDateStr) return 0;
+  const [rYear, rMonth, rDay] = calendarDateStr.split('-').map(Number);
+  const readingDateMidnight = new Date(rYear, rMonth - 1, rDay, 0, 0, 0, 0);
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  const diffMs = readingDateMidnight.getTime() - todayMidnight.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export const ReadingModal: React.FC<ReadingModalProps> = ({
   reading,
   student,
   isOpen,
   onClose,
   onToggleComplete,
+  onSaveNote,
 }) => {
   if (!isOpen || !reading) return null;
 
@@ -32,12 +52,32 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
   const initialNote = student?.notes?.[reading.day] || '';
   const [note, setNote] = useState(initialNote);
   const [loading, setLoading] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Sincronizar nota si cambia la lectura seleccionada
+  useEffect(() => {
+    setNote(student?.notes?.[reading?.day ?? 0] || '');
+    setNoteSavedFeedback(false);
+  }, [reading?.day, student?.notes]);
 
   const pillar = PILLAR_CONFIG[reading.pillar] || defaultPillar;
   const PillarIcon = pillar.Icon;
 
+  // Verificaciones de fecha y roles
+  const isInstructor = isUserInstructor(student);
+  const diffDays = getDayDifference(reading.calendarDate);
+  const isToday = diffDays === 0;
+  const isFuture = diffDays > 0;
+  const isPast = diffDays < 0;
+
   const handleToggle = async () => {
+    // Si no es instructor, no está completado y no es el día de hoy, impedir marcar
+    if (!isInstructor && !isCompleted && !isToday) {
+      return;
+    }
+
     setLoading(true);
     try {
       const willComplete = !isCompleted;
@@ -48,6 +88,18 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveNoteOnly = async () => {
+    if (!onSaveNote) return;
+    setSavingNote(true);
+    try {
+      await onSaveNote(reading.day, note);
+      setNoteSavedFeedback(true);
+      setTimeout(() => setNoteSavedFeedback(false), 3000);
+    } finally {
+      setSavingNote(false);
     }
   };
 
@@ -200,12 +252,19 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
 
           {/* Personal note */}
           <div className="mb-4">
-            <label
-              htmlFor="student-reflection-input"
-              style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#3c3c3c', marginBottom: 6 }}
-            >
-              Tu reflexión personal (opcional)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="student-reflection-input"
+                style={{ fontSize: 14, fontWeight: 700, color: '#3c3c3c' }}
+              >
+                Tu reflexión personal (opcional)
+              </label>
+              {noteSavedFeedback && (
+                <span className="text-xs font-bold text-[#58cc02] flex items-center gap-1 animate-fadeIn">
+                  <CheckCircle style={{ width: 14, height: 14 }} /> ¡Reflexión guardada!
+                </span>
+              )}
+            </div>
             <textarea
               id="student-reflection-input"
               value={note}
@@ -228,43 +287,191 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
               onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#ffffff'; }}
               onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
             />
+            {note !== initialNote && onSaveNote && (
+              <div className="mt-2 flex justify-end">
+                <button
+                  id="save-reflection-only-btn"
+                  onClick={handleSaveNoteOnly}
+                  disabled={savingNote}
+                  className="font-display text-xs font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 active:scale-95 transition-transform"
+                  style={{
+                    background: '#1cb0f6',
+                    borderBottom: '3px solid #1899d6',
+                    color: '#ffffff',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span>{savingNote ? 'Guardando...' : 'Guardar reflexión'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Footer Action ── */}
-        <div style={{ padding: '12px 16px 16px', borderTop: '2px solid #f0f0f0', background: '#ffffff' }}>
-          <button
-            id="toggle-reading-status-btn"
-            onClick={handleToggle}
-            disabled={loading}
-            className="font-display w-full flex items-center justify-center gap-2"
-            style={{
-              height: 56,
-              borderRadius: 16,
-              fontSize: 16,
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.1s ease',
-              ...(isCompleted
-                ? { background: '#58cc02', borderBottom: '4px solid #46a302', color: '#ffffff' }
-                : { background: '#58cc02', borderBottom: '4px solid #46a302', color: '#ffffff' }),
-            }}
-          >
-            {loading ? (
-              <span style={{ fontSize: 24 }}>⏳</span>
-            ) : isCompleted ? (
-              <>
-                <CheckCircle style={{ width: 22, height: 22 }} />
-                <span>¡Completado! (Desmarcar)</span>
-              </>
-            ) : (
-              <>
-                <Flame style={{ width: 22, height: 22, color: '#ffc800' }} />
-                <span>Marcar como Leído +1 Racha 🔥</span>
-              </>
-            )}
-          </button>
+        {/* ── Footer Action / Alerts según fecha y estado ── */}
+        <div style={{ padding: '12px 16px 16px', borderTop: '2px solid #f0f0f0', background: '#ffffff', flexShrink: 0 }}>
+          {isCompleted ? (
+            /* ── ESTADO: Ya está marcada como completada ── */
+            <div
+              id="reading-completed-alert"
+              className="rounded-2xl p-4 flex flex-col gap-2 animate-fadeIn"
+              style={{
+                background: '#f0fdf4',
+                border: '2px solid #58cc02',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <CheckCircle style={{ width: 22, height: 22, color: '#58cc02', flexShrink: 0 }} />
+                <span
+                  className="font-display font-bold"
+                  style={{ fontSize: 16, color: '#276e00', lineHeight: 1.3 }}
+                >
+                  Esta lectura ya está marcada como completada
+                </span>
+              </div>
+              <p style={{ fontSize: 13, color: '#4b7a2b', margin: 0, paddingLeft: 30, lineHeight: 1.4 }}>
+                ¡Excelente trabajo! Has completado tu lectura de las escrituras y tu acción de ministración del Día {reading.day}.
+              </p>
+
+              {/* Opción para desmarcar (disponible el mismo día o para instructores) */}
+              {(isToday || isInstructor) && (
+                <div className="pt-2 mt-1 border-t border-dashed" style={{ borderColor: '#bbf7d0', textAlign: 'center' }}>
+                  <button
+                    id="unmark-reading-btn"
+                    onClick={handleToggle}
+                    disabled={loading}
+                    className="text-xs font-bold transition-colors"
+                    style={{
+                      color: '#16a34a',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {loading ? 'Actualizando...' : `Desmarcar esta lectura ${isInstructor && !isToday ? '(Instructor)' : ''}`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : isFuture ? (
+            /* ── ESTADO: El día no ha llegado (estamos adelantados) ── */
+            <div
+              id="reading-ahead-alert"
+              className="rounded-2xl p-4 flex flex-col gap-2 animate-fadeIn"
+              style={{
+                background: '#e8f7ff',
+                border: '2px solid #1cb0f6',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <Clock style={{ width: 22, height: 22, color: '#1cb0f6', flexShrink: 0 }} />
+                <span
+                  className="font-display font-bold"
+                  style={{ fontSize: 16, color: '#0c7ab8', lineHeight: 1.3 }}
+                >
+                  {diffDays === 1
+                    ? 'Aún falta 1 día para poder marcar esta lectura.'
+                    : `Aún faltan ${diffDays} días para poder marcar esta lectura.`}
+                </span>
+              </div>
+              <p style={{ fontSize: 13, color: '#0369a1', margin: 0, paddingLeft: 30, lineHeight: 1.4 }}>
+                Esta lección corresponde al <strong>{reading.dateStr}</strong>. Puedes leer las escrituras y meditar con calma, pero solo podrás marcarla completada el día correspondiente.
+              </p>
+
+              {/* Botón de acceso de instructor para pruebas */}
+              {isInstructor && (
+                <div className="pt-2 mt-1 border-t border-dashed" style={{ borderColor: '#bae6fd' }}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-sky-700 flex items-center gap-1">
+                      <Shield style={{ width: 13, height: 13 }} /> MODO INSTRUCTOR:
+                    </span>
+                  </div>
+                  <button
+                    id="instructor-force-toggle-btn"
+                    onClick={handleToggle}
+                    disabled={loading}
+                    className="w-full rounded-xl py-2 px-3 font-display font-bold text-xs bg-white text-sky-800 border-2 border-sky-300 hover:bg-sky-50 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span>⚡ Forzar marcar como completado (Pruebas)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : isPast ? (
+            /* ── ESTADO: El día ya pasó y no se leyó ── */
+            <div
+              id="reading-passed-alert"
+              className="rounded-2xl p-4 flex flex-col gap-2 animate-fadeIn"
+              style={{
+                background: '#fff3e0',
+                border: '2px solid #ff9600',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertCircle style={{ width: 22, height: 22, color: '#ff9600', flexShrink: 0 }} />
+                <span
+                  className="font-display font-bold"
+                  style={{ fontSize: 16, color: '#c2410c', lineHeight: 1.3 }}
+                >
+                  El día de lectura pasó, pero no te preocupes: puedes continuar con el día de hoy
+                </span>
+              </div>
+              <p style={{ fontSize: 13, color: '#9a3412', margin: 0, paddingLeft: 30, lineHeight: 1.4 }}>
+                Lo importante es perseverar y mantener tu conexión viva con Jesucristo. ¡Continúa con la lectura programada para hoy!
+              </p>
+
+              {/* Botón de acceso de instructor para pruebas o ajustes */}
+              {isInstructor && (
+                <div className="pt-2 mt-1 border-t border-dashed" style={{ borderColor: '#fed7aa' }}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1">
+                      <Shield style={{ width: 13, height: 13 }} /> MODO INSTRUCTOR:
+                    </span>
+                  </div>
+                  <button
+                    id="instructor-force-toggle-btn"
+                    onClick={handleToggle}
+                    disabled={loading}
+                    className="w-full rounded-xl py-2 px-3 font-display font-bold text-xs bg-white text-amber-900 border-2 border-amber-300 hover:bg-amber-50 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span>⚡ Marcar día atrasado (Pruebas de Instructor)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── ESTADO: ¡Es el día de hoy y aún no está completada! ── */
+            <button
+              id="toggle-reading-status-btn"
+              onClick={handleToggle}
+              disabled={loading}
+              className="font-display w-full flex items-center justify-center gap-2 active:scale-98 transition-all"
+              style={{
+                height: 56,
+                borderRadius: 16,
+                fontSize: 16,
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                background: '#58cc02',
+                borderBottom: '4px solid #46a302',
+                color: '#ffffff',
+              }}
+            >
+              {loading ? (
+                <span style={{ fontSize: 24 }}>⏳</span>
+              ) : (
+                <>
+                  <Flame style={{ width: 22, height: 22, color: '#ffc800' }} />
+                  <span>Marcar como Leído +1 Racha 🔥</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* ── Celebration Overlay ── */}

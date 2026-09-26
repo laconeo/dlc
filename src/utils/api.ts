@@ -487,6 +487,39 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
   }
 }
 
+// ── SAVE NOTE ONLY ────────────────────────────────────────────────────────────
+
+export async function saveStudentNote(studentId: string, day: number, note: string): Promise<Student> {
+  try {
+    await supabase
+      .from('student_notes')
+      .upsert({ student_id: studentId, day, note: note.trim() }, { onConflict: 'student_id,day' });
+
+    const { data, error } = await supabase
+      .from('students_full')
+      .select('*')
+      .eq('id', studentId)
+      .single();
+
+    if (!error && data) {
+      const student = rowToStudent(data);
+      saveLocalStudent(student);
+      return student;
+    }
+  } catch (err) {
+    console.warn('saveStudentNote Supabase fallback:', err);
+  }
+
+  const local = getLocalStudent();
+  if (local && local.id === studentId) {
+    if (!local.notes) local.notes = {};
+    local.notes[day] = note.trim();
+    saveLocalStudent(local);
+    return local;
+  }
+  throw new Error('No se pudo guardar la nota.');
+}
+
 // ── INSTRUCTOR DATA ───────────────────────────────────────────────────────────
 
 export async function fetchInstructorData(): Promise<{ students: Student[]; stats: InstructorStats }> {

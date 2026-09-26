@@ -61,11 +61,20 @@ export const PathView: React.FC<PathViewProps> = ({
 }) => {
   const completedDays = student?.completedDays || [];
 
+  // Encontrar la lectura correspondiente al día de hoy según el calendario
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
+
   let nextActiveDay = 1;
-  for (let i = 1; i <= 31; i++) {
-    if (!completedDays.includes(i)) {
-      nextActiveDay = i;
-      break;
+  if (todayReading) {
+    nextActiveDay = todayReading.day;
+  } else {
+    for (let i = 1; i <= 31; i++) {
+      if (!completedDays.includes(i)) {
+        nextActiveDay = i;
+        break;
+      }
     }
   }
 

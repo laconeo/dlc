@@ -381,6 +381,85 @@ export async function loginStudent(email: string, password?: string): Promise<St
   }
 }
 
+// ── RECUPERACIÓN DE CONTRASEÑA ────────────────────────────────────────────────
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) {
+    throw new Error('Por favor ingresa tu correo electrónico.');
+  }
+
+  // URL base actual sin hashes ni parámetros
+  const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+    redirectTo: redirectUrl,
+  });
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('rate limit') || msg.includes('too many requests')) {
+      throw new Error('Has solicitado demasiados correos en poco tiempo. Espera un momento antes de volver a intentar.');
+    }
+    throw new Error(error.message || 'No se pudo enviar el correo de recuperación.');
+  }
+}
+
+export async function updateUserPassword(newPassword: string): Promise<Student> {
+  const cleanPass = newPassword.trim();
+  if (cleanPass.length < 6) {
+    throw new Error('La nueva contraseña debe tener al menos 6 caracteres.');
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.updateUser({
+    password: cleanPass,
+  });
+
+  if (authError) {
+    throw new Error(authError.message || 'No se pudo actualizar la contraseña.');
+  }
+
+  if (!authData.user) {
+    throw new Error('No se encontró una sesión activa para restablecer la contraseña.');
+  }
+
+  const userId = authData.user.id;
+
+  // Cargar perfil actualizado
+  const { data, error } = await supabase
+    .from('students_full')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  let student: Student;
+  if (data && !error) {
+    student = rowToStudent(data);
+  } else {
+    const meta = authData.user.user_metadata || {};
+    const cleanEmail = (authData.user.email || '').toLowerCase().trim();
+    student = {
+      id: userId,
+      name: meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : cleanEmail.split('@')[0],
+      firstName: meta.first_name || '',
+      lastName: meta.last_name || '',
+      email: cleanEmail,
+      ward: meta.ward || '',
+      seminaryClass: meta.seminary_class || '',
+      streak: 0,
+      completedDays: 0,
+      totalReadings: 0,
+      readings: [],
+      lastCompletedDate: null,
+      earnedBadges: [],
+    };
+  }
+
+  student.password = cleanPass;
+  saveLocalStudent(student);
+  return student;
+}
+
 // ── TOGGLE DAY ────────────────────────────────────────────────────────────────
 
 export async function toggleStudentDay(studentId: string, day: number, note?: string): Promise<Student> {

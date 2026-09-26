@@ -10,6 +10,7 @@ import { StudentProfileModal } from './components/StudentProfileModal';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { DayReading, Student, SpecialBadge } from './types';
 import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent, saveStudentNote } from './utils/api';
+import { supabase } from './utils/supabase';
 import { SPECIAL_BADGES } from './data/readings';
 
 export type AppPage = 'path' | 'reading' | 'cards' | 'ministering' | 'profile' | 'instructor';
@@ -27,6 +28,24 @@ export default function App() {
 
   // Load existing student or prompt login/register
   useEffect(() => {
+    // Si la URL contiene un token de recuperación de contraseña,
+    // debemos mostrar la pantalla de recuperación y no auto-ingresar
+    const hasRecovery =
+      window.location.hash.includes('type=recovery') ||
+      window.location.search.includes('type=recovery');
+
+    if (hasRecovery) {
+      setStudent(null);
+      setLoading(false);
+      return;
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setStudent(null);
+      }
+    });
+
     const initStudent = async () => {
       setLoading(true);
       try {
@@ -60,6 +79,10 @@ export default function App() {
       }
     };
     initStudent();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Handlers

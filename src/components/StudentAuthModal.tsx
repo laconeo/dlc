@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, User, BookOpen, Lock, Eye, EyeOff, Sparkles, ArrowRight, MapPin, CheckCircle2, Flame, Shield } from 'lucide-react';
+import { Mail, User, BookOpen, Lock, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, MapPin, CheckCircle2, Flame, Shield, KeyRound } from 'lucide-react';
 import { Student, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
-import { loginStudent, registerStudent } from '../utils/api';
+import { loginStudent, registerStudent, requestPasswordReset, updateUserPassword } from '../utils/api';
+import { supabase } from '../utils/supabase';
 
 interface StudentAuthModalProps {
   isOpen: boolean;
   currentStudent: Student | null;
+  initialMode?: AuthMode;
   onSuccess: (student: Student) => void;
   onClose?: () => void;
 }
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot_password' | 'reset_password';
 
 /* ── Shared input field ── */
 function Field({
@@ -114,12 +116,13 @@ function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) 
 export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   isOpen,
   currentStudent,
+  initialMode,
   onSuccess,
   onClose,
 }) => {
   if (!isOpen) return null;
 
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>(initialMode || 'login');
   const [email, setEmail] = useState(currentStudent?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -131,9 +134,35 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estados para recuperación de contraseña
+  const [forgotSent, setForgotSent] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   // Estado para la pantalla de bienvenida post-registro
   const [registeredStudent, setRegisteredStudent] = useState<Student | null>(null);
   const [countdown, setCountdown] = useState(5);
+
+  // Detectar token de recuperación en URL o evento de Supabase Auth
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      setMode('reset_password');
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('reset_password');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Auto-login automático con cuenta regresiva en la pantalla de bienvenida
   useEffect(() => {
@@ -151,7 +180,15 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     return () => clearInterval(interval);
   }, [registeredStudent, onSuccess]);
 
-  const resetForm = () => { setError(null); setPassword(''); setConfirmPassword(''); };
+  const resetForm = () => {
+    setError(null);
+    setPassword('');
+    setConfirmPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setForgotSent(false);
+    setResetSuccess(false);
+  };
   const switchMode = (m: AuthMode) => { setMode(m); resetForm(); };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -164,6 +201,52 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión. Verifica tus datos.');
     } finally { setLoading(false); }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.includes('@')) {
+      setError('Ingresa un correo electrónico válido.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await requestPasswordReset(email.trim());
+      setForgotSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Error al enviar el correo de recuperación.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.trim().length < 6) {
+      setError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (newPassword.trim() !== confirmNewPassword.trim()) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const updatedStudent = await updateUserPassword(newPassword.trim());
+      if (window.location.hash.includes('type=recovery')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      setResetSuccess(true);
+      setTimeout(() => {
+        onSuccess(updatedStudent);
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Error al restablecer la contraseña. Es posible que el enlace haya expirado.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -354,59 +437,80 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
             fontSize: 22,
           }}
         >
-          📖
+          {mode === 'forgot_password' || mode === 'reset_password' ? '🔐' : '📖'}
         </div>
 
         <p
           className="font-display font-bold"
           style={{ fontSize: 19, color: '#ffffff', lineHeight: 1.2 }}
         >
-          «Detente, Lee, Conecta»
+          {mode === 'forgot_password'
+            ? 'Recuperar Contraseña'
+            : mode === 'reset_password'
+            ? 'Nueva Contraseña'
+            : '«Detente, Lee, Conecta»'}
         </p>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
-          Desafío de lectura · 30 días
+          {mode === 'forgot_password'
+            ? 'Te ayudamos a recuperar tu acceso'
+            : mode === 'reset_password'
+            ? 'Configura tu nueva clave de acceso'
+            : 'Desafío de lectura · 30 días'}
         </p>
 
-        {/* Mode tabs */}
-        <div
-          style={{
-            display: 'flex',
-            background: 'rgba(0,0,0,0.18)',
-            borderRadius: 12,
-            padding: 3,
-            marginTop: 10,
-            gap: 4,
-          }}
-        >
-          {(['login', 'register'] as AuthMode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => switchMode(m)}
-              className="font-display font-bold transition-all"
+        {/* Mode tabs or Back Button */}
+        <div style={{ marginTop: 10 }}>
+          {mode === 'login' || mode === 'register' ? (
+            <div
               style={{
-                flex: 1,
-                height: 36,
-                borderRadius: 10,
-                fontSize: 14,
-                border: 'none',
-                cursor: 'pointer',
-                background: mode === m ? '#ffffff' : 'transparent',
-                color: mode === m ? '#46a302' : 'rgba(255,255,255,0.95)',
+                display: 'flex',
+                background: 'rgba(0,0,0,0.18)',
+                borderRadius: 12,
+                padding: 3,
+                gap: 4,
               }}
             >
-              {m === 'login' ? 'Ingresar' : 'Registrarse'}
+              {(['login', 'register'] as AuthMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => switchMode(m)}
+                  className="font-display font-bold transition-all"
+                  style={{
+                    flex: 1,
+                    height: 36,
+                    borderRadius: 10,
+                    fontSize: 14,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: mode === m ? '#ffffff' : 'transparent',
+                    color: mode === m ? '#46a302' : 'rgba(255,255,255,0.95)',
+                  }}
+                >
+                  {m === 'login' ? 'Ingresar' : 'Registrarse'}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className="inline-flex items-center gap-1.5 text-white/95 text-xs font-bold font-display px-3 py-1.5 rounded-full hover:bg-white/20 transition-all cursor-pointer"
+              style={{ background: 'rgba(0,0,0,0.22)' }}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Volver a Iniciar Sesión</span>
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* ══ FORM AREA (sin scroll en login) ══ */}
+      {/* ══ FORM AREA (sin scroll en login, forgot y reset) ══ */}
       <div
-        className={`flex-1 ${mode === 'login' ? 'overflow-hidden flex flex-col justify-center' : 'overflow-y-auto no-scrollbar'}`}
+        className={`flex-1 ${mode === 'login' || mode === 'forgot_password' || mode === 'reset_password' ? 'overflow-hidden flex flex-col justify-center' : 'overflow-y-auto no-scrollbar'}`}
         style={{
-          padding: mode === 'login' ? '12px 20px 20px' : '0 20px 24px',
-          overflowY: mode === 'login' ? 'hidden' : 'auto',
+          padding: mode === 'register' ? '0 20px 24px' : '10px 20px 16px',
+          overflowY: mode === 'register' ? 'auto' : 'hidden',
           overscrollBehavior: 'none',
         }}
       >
@@ -414,17 +518,18 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         {error && (
           <div
             style={{
-              marginTop: 16,
-              padding: '12px 14px',
+              marginTop: 12,
+              marginBottom: 4,
+              padding: '10px 14px',
               background: '#fff0f0',
               border: '2px solid #ff4b4b',
               borderRadius: 12,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: '#cc0000',
               display: 'flex',
               gap: 8,
-              alignItems: 'flex-start',
+              alignItems: 'center',
             }}
           >
             <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
@@ -436,7 +541,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         {mode === 'login' && (
           <form
             onSubmit={handleLogin}
-            style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}
           >
             <Field
               id="login-email"
@@ -458,6 +563,26 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               suffix={<EyeToggle show={showPassword} onToggle={() => setShowPassword(!showPassword)} />}
             />
 
+            {/* Enlace de recuperación de contraseña */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -4 }}>
+              <button
+                id="forgot-password-link-btn"
+                type="button"
+                onClick={() => switchMode('forgot_password')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#1cb0f6',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  padding: '2px 0',
+                }}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+
             <button
               id="student-login-submit-btn"
               type="submit"
@@ -465,12 +590,12 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               className="btn-duo-green font-display"
               style={{
                 width: '100%',
-                height: 52,
+                height: 48,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-                marginTop: 4,
+                marginTop: 2,
                 fontSize: 16,
               }}
             >
@@ -492,7 +617,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
 
             {/* Continue as existing user */}
             {onClose && currentStudent && (
-              <div style={{ textAlign: 'center', marginTop: 4 }}>
+              <div style={{ textAlign: 'center', marginTop: 2 }}>
                 <button
                   type="button"
                   onClick={onClose}
@@ -503,6 +628,268 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               </div>
             )}
           </form>
+        )}
+
+        {/* ── FORGOT PASSWORD FORM ── */}
+        {mode === 'forgot_password' && (
+          <div style={{ marginTop: 8 }}>
+            {forgotSent ? (
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '2px solid #86efac',
+                  borderRadius: 16,
+                  padding: '20px 16px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 26,
+                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                  }}
+                >
+                  📬
+                </div>
+                <h3 className="font-display font-bold text-lg text-[#166534]">
+                  ¡Correo enviado!
+                </h3>
+                <p style={{ fontSize: 13, color: '#15803d', lineHeight: 1.4 }}>
+                  Hemos enviado las instrucciones para restablecer tu contraseña a:
+                  <br />
+                  <strong style={{ color: '#14532d', wordBreak: 'break-all' }}>{email}</strong>
+                </p>
+                <p style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.3 }}>
+                  Abre el enlace que recibiste. Si no lo encuentras en unos minutos, revisa tu carpeta de <strong>Spam o Correo no deseado</strong>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  className="btn-duo-green font-display"
+                  style={{
+                    width: '100%',
+                    height: 46,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    marginTop: 6,
+                    fontSize: 15,
+                  }}
+                >
+                  <ArrowLeft style={{ width: 18, height: 18 }} />
+                  <span>Volver a Iniciar Sesión</span>
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleForgotPassword}
+                style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+              >
+                <p style={{ fontSize: 13, color: '#555555', lineHeight: 1.4 }}>
+                  Ingresa tu correo registrado y te enviaremos un enlace seguro para crear una nueva contraseña.
+                </p>
+
+                <Field
+                  id="forgot-email"
+                  label="Correo electrónico"
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  placeholder="ejemplo@correo.com"
+                  icon={Mail}
+                />
+
+                <button
+                  id="student-forgot-submit-btn"
+                  type="submit"
+                  disabled={loading}
+                  className="btn-duo-green font-display"
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    marginTop: 4,
+                    fontSize: 16,
+                  }}
+                >
+                  {loading ? (
+                    <span style={{ fontSize: 22 }}>⏳</span>
+                  ) : (
+                    <>
+                      <span>Enviar Enlace</span>
+                      <ArrowRight style={{ width: 19, height: 19 }} />
+                    </>
+                  )}
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#777777',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <ArrowLeft style={{ width: 15, height: 15 }} />
+                    <span>Volver a Iniciar Sesión</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* ── RESET PASSWORD FORM (cuando viene del enlace del correo) ── */}
+        {mode === 'reset_password' && (
+          <div style={{ marginTop: 8 }}>
+            {resetSuccess ? (
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '2px solid #86efac',
+                  borderRadius: 16,
+                  padding: '24px 20px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 26,
+                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                  }}
+                >
+                  ✨
+                </div>
+                <h3 className="font-display font-bold text-lg text-[#166534]">
+                  ¡Contraseña actualizada!
+                </h3>
+                <p style={{ fontSize: 13, color: '#15803d', lineHeight: 1.4 }}>
+                  Tu contraseña ha sido actualizada con éxito. Ingresando al desafío...
+                </p>
+                <span style={{ fontSize: 24 }} className="animate-spin">
+                  ⏳
+                </span>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleResetPassword}
+                style={{ display: 'flex', flexDirection: 'column', gap: 11 }}
+              >
+                <p style={{ fontSize: 13, color: '#555555', lineHeight: 1.4 }}>
+                  Crea tu nueva contraseña para acceder a «Detente, Lee, Conecta».
+                </p>
+
+                <Field
+                  id="reset-new-password"
+                  label="Nueva Contraseña"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  placeholder="Mínimo 6 caracteres"
+                  icon={Lock}
+                  suffix={
+                    <EyeToggle
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword(!showNewPassword)}
+                    />
+                  }
+                />
+
+                <Field
+                  id="reset-confirm-password"
+                  label="Confirmar Contraseña"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={setConfirmNewPassword}
+                  placeholder="Repite tu nueva contraseña"
+                  icon={Lock}
+                />
+
+                <button
+                  id="student-reset-submit-btn"
+                  type="submit"
+                  disabled={loading}
+                  className="btn-duo-green font-display"
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    marginTop: 4,
+                    fontSize: 16,
+                  }}
+                >
+                  {loading ? (
+                    <span style={{ fontSize: 22 }}>⏳</span>
+                  ) : (
+                    <>
+                      <span>Guardar Nueva Contraseña</span>
+                      <CheckCircle2 style={{ width: 19, height: 19 }} />
+                    </>
+                  )}
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#777777',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <ArrowLeft style={{ width: 15, height: 15 }} />
+                    <span>Volver a Iniciar Sesión</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
 
         {/* ── REGISTER FORM ── */}

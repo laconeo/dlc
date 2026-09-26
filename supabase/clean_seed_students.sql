@@ -1,28 +1,35 @@
 -- ==============================================================
 -- LIMPIAR ESTUDIANTES DEMO / SEMILLA DEL PANEL DE INSTRUCTOR
--- Ejecuta este script en el SQL Editor de tu Supabase Dashboard
--- para eliminar permanentemente los alumnos de prueba iniciales
--- (Lucas Romero, Valentina Silva, Mateo Gómez, Sofía Morales, Benjamín Castro).
+-- Ejecuta este script en el SQL Editor de Supabase
 -- ==============================================================
 
--- 1. Eliminar insignias asignadas a usuarios demo
+-- 1. Eliminar insignias de usuarios demo (usando casteo ::text o subconsulta segura)
 DELETE FROM public.student_unlocked_badges
-WHERE student_id LIKE '11111111-0000-0000-0000-%';
+WHERE student_id IN (
+  SELECT id FROM public.students
+  WHERE email LIKE '%@seminario.org' OR id::text LIKE '11111111%'
+);
 
 -- 2. Eliminar notas de reflexión de usuarios demo
 DELETE FROM public.student_notes
-WHERE student_id LIKE '11111111-0000-0000-0000-%';
+WHERE student_id IN (
+  SELECT id FROM public.students
+  WHERE email LIKE '%@seminario.org' OR id::text LIKE '11111111%'
+);
 
--- 3. Eliminar días marcados por usuarios demo
+-- 3. Eliminar días completados de usuarios demo
 DELETE FROM public.student_completed_days
-WHERE student_id LIKE '11111111-0000-0000-0000-%';
+WHERE student_id IN (
+  SELECT id FROM public.students
+  WHERE email LIKE '%@seminario.org' OR id::text LIKE '11111111%'
+);
 
--- 4. Eliminar los perfiles de los usuarios demo de la tabla students
+-- 4. Eliminar los registros de la tabla students
 DELETE FROM public.students
-WHERE id LIKE '11111111-0000-0000-0000-%'
-   OR email LIKE '%@seminario.org';
+WHERE email LIKE '%@seminario.org'
+   OR id::text LIKE '11111111%';
 
--- 5. Verificar que solo queden tus usuarios reales
+-- 5. Comprobar que solo queden tus estudiantes reales
 SELECT id, email, first_name, last_name, role, current_streak, created_at
 FROM public.students_full
 ORDER BY created_at DESC;

@@ -1,5 +1,19 @@
 import React from 'react';
-import { Award, ArrowLeft, Sparkles, Lock, Flame, Shield } from 'lucide-react';
+import {
+  Trophy,
+  Award,
+  ArrowLeft,
+  Sparkles,
+  Lock,
+  Flame,
+  Shield,
+  Pizza,
+  IceCream,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  Star,
+} from 'lucide-react';
 import { Student, SpecialBadge } from '../types';
 
 interface CardsGalleryModalProps {
@@ -32,7 +46,7 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
       >
         <div className="flex items-center gap-3">
           <button
-            id="close-cards-gallery-btn"
+            id="close-prizes-btn"
             onClick={onClose}
             className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
             style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.25)' }}
@@ -44,147 +58,227 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: '#ffc800' }}
           >
-            <Award style={{ width: 22, height: 22, color: '#3c3c3c' }} />
+            <Trophy style={{ width: 22, height: 22, color: '#3c3c3c' }} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-display font-bold text-white text-base leading-tight">
-                Álbum de Cartas
-              </h2>
-              <span
-                className="font-display font-bold px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide inline-block"
-                style={{ background: '#ffc800', color: '#3c3c3c' }}
-              >
-                Próximamente
-              </span>
-            </div>
+            <h2 className="font-display font-bold text-white text-base leading-tight">
+              Premios del Desafío
+            </h2>
             <p style={{ fontSize: 12, color: '#afafaf' }}>
-              Coleccionables de Fe y Racha
+              Cartas de Racha y Salida de Clase
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Scrollable Body: Próximamente Content ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-5 flex flex-col items-center justify-center text-center">
-        {/* Animated Golden Teaser Card */}
+      {/* ── Scrollable Body ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-4 space-y-4">
+
+        {/* ── INTRO BANNER ── */}
         <div
-          className="relative rounded-3xl p-6 mb-6 shadow-xl border-4 transition-transform duration-300 hover:scale-105"
-          style={{
-            width: '100%',
-            maxWidth: 280,
-            background: 'linear-gradient(145deg, #fffbe0 0%, #ffffff 45%, #fff3b0 100%)',
-            borderColor: '#ffc800',
-          }}
+          className="rounded-3xl p-4 border-2 border-[#ffc800]"
+          style={{ background: 'linear-gradient(135deg, #fffbe0 0%, #ffffff 100%)' }}
         >
-          {/* Card header */}
-          <div className="flex justify-between items-center mb-3">
-            <span
-              className="font-display font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full"
-              style={{ background: '#3c3c3c', color: '#ffc800' }}
-            >
-              Colección Especial
-            </span>
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <span className="text-2xl">🏆</span>
+            <h3 className="font-display font-bold text-base text-[#3c3c3c]">
+              ¡Doble Recompensa por tu Esfuerzo!
+            </h3>
+          </div>
+          <p className="text-xs text-[#666666] leading-relaxed">
+            En «Detente, Lee, Conecta», tu constancia diaria tiene premios espirituales y momentos inolvidables para disfrutar en comunidad con tu clase de Seminario.
+          </p>
+        </div>
+
+        {/* ── PREMIO 1: CARTAS DE LA SEMANA (RACHA PERFECTA) ── */}
+        <div
+          className="rounded-3xl p-4 border-2 border-[#1cb0f6]"
+          style={{ background: '#ffffff' }}
+        >
+          {/* Card Header */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#e8f7ff] flex items-center justify-center text-[#1cb0f6]">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-display font-bold text-xs uppercase px-2 py-0.5 rounded-md bg-[#1cb0f6] text-white">
+                  Premio 1
+                </span>
+                <h4 className="font-display font-bold text-sm text-[#1e293b] mt-0.5">
+                  La Carta Coleccionable de la Semana
+                </h4>
+              </div>
+            </div>
             <Sparkles className="w-5 h-5 text-[#ffc800]" />
           </div>
 
-          {/* Card Icon Spotlight */}
+          {/* Reglas de la Carta */}
           <div
-            className="w-24 h-24 rounded-2xl mx-auto my-3 flex items-center justify-center shadow-inner relative"
-            style={{
-              background: 'linear-gradient(135deg, #ffe066 0%, #ffc800 100%)',
-              border: '3px solid #e5a400',
-            }}
+            className="rounded-2xl p-3 my-2.5 border-2 border-[#fed7aa]"
+            style={{ background: '#fff7ed' }}
           >
-            <Lock className="w-10 h-10 text-white drop-shadow-md" />
-            <div
-              className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md text-sm"
-              style={{ background: '#ffffff', border: '2px solid #ffc800' }}
-            >
-              👑
+            <div className="flex items-center gap-1.5 mb-1">
+              <AlertCircle className="w-4 h-4 text-[#ea580c] shrink-0" />
+              <p className="font-display font-bold text-xs text-[#9a3412]">
+                Regla para ganar la Carta:
+              </p>
             </div>
+            <p className="text-xs text-[#c2410c] leading-relaxed">
+              La carta de la semana <strong>SOLO se gana si completas la TOTALIDAD de las lecturas sin perder ningún día</strong>. Debes marcar la lectura cada día correspondiente de forma consecutiva (7 de 7 días). Si se pierde un día, no se puede reclamar la carta de esa semana.
+            </p>
           </div>
 
-          <h3 className="font-display font-bold text-lg text-[#3c3c3c] mt-2">
-            Cartas de Patriarcas
-          </h3>
-          <p className="text-xs text-[#777777] font-medium mt-1">
-            Abraham · Isaac · Jacob · Jesucristo
+          {/* Cartas a ganar */}
+          <p className="font-display font-bold text-xs text-[#475569] mb-2 uppercase tracking-wide">
+            Las 4 Cartas del Desafío:
           </p>
-
-          <div
-            className="mt-4 pt-3 border-t-2 border-[#ffe066] flex items-center justify-center gap-2"
-          >
-            <span
-              className="font-display font-bold text-xs uppercase px-3 py-1 rounded-xl"
-              style={{ background: '#ff9600', color: '#ffffff' }}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Semana 1: Abraham */}
+            <div
+              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
+              style={{ background: '#f8fafc' }}
             >
-              Próximamente disponible
-            </span>
+              <div className="w-9 h-9 rounded-xl bg-[#e0f2fe] flex items-center justify-center text-base mb-1 shadow-sm">
+                🥈
+              </div>
+              <p className="font-display font-bold text-xs text-[#1e293b]">
+                Abraham
+              </p>
+              <p className="text-[10px] text-[#64748b]">
+                Semana 1 · 7 días seguidos
+              </p>
+            </div>
+
+            {/* Semana 2: Isaac */}
+            <div
+              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
+              style={{ background: '#f8fafc' }}
+            >
+              <div className="w-9 h-9 rounded-xl bg-[#dcfce7] flex items-center justify-center text-base mb-1 shadow-sm">
+                🥈
+              </div>
+              <p className="font-display font-bold text-xs text-[#1e293b]">
+                Isaac
+              </p>
+              <p className="text-[10px] text-[#64748b]">
+                Semana 2 · 14 días seguidos
+              </p>
+            </div>
+
+            {/* Semana 3: Jacob */}
+            <div
+              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
+              style={{ background: '#f8fafc' }}
+            >
+              <div className="w-9 h-9 rounded-xl bg-[#f3e8ff] flex items-center justify-center text-base mb-1 shadow-sm">
+                🥈
+              </div>
+              <p className="font-display font-bold text-xs text-[#1e293b]">
+                Jacob
+              </p>
+              <p className="text-[10px] text-[#64748b]">
+                Semana 3 · 21 días seguidos
+              </p>
+            </div>
+
+            {/* Día 30: Jesucristo */}
+            <div
+              className="rounded-2xl p-2.5 border-2 border-[#ffe066] text-center flex flex-col items-center"
+              style={{ background: '#fffdf0' }}
+            >
+              <div className="w-9 h-9 rounded-xl bg-[#fff3b0] flex items-center justify-center text-base mb-1 shadow-sm">
+                👑
+              </div>
+              <p className="font-display font-bold text-xs text-[#78350f]">
+                Jesucristo
+              </p>
+              <p className="text-[10px] text-[#b45309] font-bold">
+                Carta Dorada · 30 días
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Informative Explanation */}
-        <h2 className="font-display font-bold text-2xl text-[#3c3c3c] mb-2">
-          ¡Muy pronto en tu app!
-        </h2>
-        <p className="text-sm text-[#666666] max-w-xs leading-relaxed mb-5">
-          Estamos afinando la entrega de cartas coleccionables para premiar tu avance semanal en las lecturas del Antiguo Testamento.
-        </p>
+        {/* ── PREMIO 2: SALIDA GRUPAL A PIZZERÍA O HELADERÍA ── */}
+        <div
+          className="rounded-3xl p-4 border-2 border-[#58cc02]"
+          style={{ background: 'linear-gradient(145deg, #f0fdf4 0%, #ffffff 100%)' }}
+        >
+          {/* Card Header */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#dcfce7] flex items-center justify-center text-[#16a34a]">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-display font-bold text-xs uppercase px-2 py-0.5 rounded-md bg-[#58cc02] text-white">
+                  Premio 2 · Para Toda la Clase
+                </span>
+                <h4 className="font-display font-bold text-sm text-[#14532d] mt-0.5">
+                  Salida Grupal a Pizzería o Heladería 🍕🍦
+                </h4>
+              </div>
+            </div>
+          </div>
 
-        {/* Feature Preview Cards */}
-        <div className="w-full max-w-sm space-y-2.5 mb-5 text-left">
+          {/* Explicación de la Salida de Clase */}
           <div
-            className="rounded-2xl p-3 flex items-center gap-3 border-2 border-[#e5e5e5]"
-            style={{ background: '#f8fafc' }}
+            className="rounded-2xl p-3 my-2.5 border-2 border-[#bbf7d0]"
+            style={{ background: '#ffffff' }}
           >
-            <div className="w-9 h-9 rounded-xl bg-[#e0f2fe] flex items-center justify-center shrink-0 text-[#0284c7]">
-              <Shield className="w-5 h-5" />
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-1 text-xl">
+                <span>🍕</span>
+                <span>🍦</span>
+              </div>
+              <p className="font-display font-bold text-xs text-[#166534]">
+                Premio por Participar y Perseverar Juntos:
+              </p>
+            </div>
+            <p className="text-xs text-[#15803d] leading-relaxed">
+              ¿Se te pasó algún día y no pudiste ganar la carta individual? <strong>¡No te preocupes ni te desanimes!</strong> Este segundo premio es <strong>por participar activamente en el desafío</strong>.
+            </p>
+            <p className="text-xs text-[#15803d] leading-relaxed mt-1.5">
+              Al finalizar el desafío de 30 días, <strong>saldremos todos juntos como clase de Seminario a una pizzería o heladería</strong> para celebrar el esfuerzo, compartir testimonios y festejar la victoria de haber leído juntos las Escrituras.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 text-xs text-[#166534] font-medium">
+            <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" />
+            <span>¡Lo importante es no abandonar y seguir leyendo juntos cada día!</span>
+          </div>
+        </div>
+
+        {/* ── ESTADO ACTUAL DEL ALUMNO ── */}
+        <div
+          className="rounded-2xl p-3.5 border-2 border-[#e5e5e5] bg-[#f8fafc] flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-[#fff3e0] border border-[#ff9600] flex items-center justify-center text-xl shrink-0">
+              🔥
             </div>
             <div>
-              <p className="font-display font-bold text-xs text-[#1e293b]">
-                Cartas Plateadas de Patriarcas
+              <p className="font-display font-bold text-xs text-[#334155]">
+                Tu Racha Actual: {currentStreak} días
               </p>
               <p className="text-[11px] text-[#64748b]">
-                Se desbloquean al completar cada semana ininterrumpida de lectura (Semana 1, 2 y 3).
+                {completedCount} de 30 lecturas completadas
               </p>
             </div>
           </div>
-
-          <div
-            className="rounded-2xl p-3 flex items-center gap-3 border-2 border-[#ffe066]"
-            style={{ background: '#fffdf0' }}
+          <span
+            className="font-display font-bold text-xs px-2.5 py-1 rounded-xl text-white shrink-0"
+            style={{ background: currentStreak >= 7 ? '#58cc02' : '#ff9600' }}
           >
-            <div className="w-9 h-9 rounded-xl bg-[#fff3b0] flex items-center justify-center shrink-0 text-[#d97706]">
-              <Award className="w-5 h-5 text-[#d97706]" />
-            </div>
-            <div>
-              <p className="font-display font-bold text-xs text-[#78350f]">
-                Carta Dorada Suprema de Jesucristo
-              </p>
-              <p className="text-[11px] text-[#92400e]">
-                Recompensa exclusiva al completar los 30 días del desafío.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Student Current Streak Feedback */}
-        <div
-          className="rounded-2xl p-3 border-2 border-[#bbf7d0] flex items-center justify-center gap-2 mb-2 w-full max-w-sm"
-          style={{ background: '#f0fdf4' }}
-        >
-          <Flame className="w-5 h-5 text-[#16a34a] fill-[#16a34a]" />
-          <span className="font-display font-bold text-xs text-[#15803d]">
-            Tu progreso actual: {completedCount} de 30 días leídos · Racha: {currentStreak} días
+            {currentStreak >= 7 ? '¡Racha Imparable!' : '¡Sigue leyendo!'}
           </span>
         </div>
+
       </div>
 
       {/* ── Bottom Action Button ── */}
-      <div
-        className="p-4 border-t-2 border-[#e5e5e5] bg-white shrink-0"
-      >
+      <div className="p-4 border-t-2 border-[#e5e5e5] bg-white shrink-0">
         <button
           onClick={onClose}
           className="btn-duo-green w-full font-display font-bold text-base py-3.5 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"

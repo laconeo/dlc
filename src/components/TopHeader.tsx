@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Award, BookOpen, User, Shield } from 'lucide-react';
+import { Flame, Award, BookOpen, User, Shield, Trophy } from 'lucide-react';
 import { Student, isUserInstructor } from '../types';
 
 interface TopHeaderProps {
@@ -40,16 +40,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
         {/* Center: Badges & Days */}
         <div className="flex items-center gap-2">
-          {/* Cartas */}
+          {/* Premios */}
           <button
             id="badges-shortcut-btn"
             onClick={onOpenBadges}
-            className="pill-duo border-[#a560f0] bg-[#f5eeff] active:scale-95 transition-transform"
+            className="pill-duo border-[#a560f0] bg-[#f5eeff] active:scale-95 transition-transform flex items-center gap-1.5"
             style={{ color: '#a560f0' }}
-            title="Ver Cartas coleccionables (Próximamente)"
+            title="Premios del Desafío"
           >
-            <Award className="w-5 h-5" />
-            <span className="text-[11px] font-display font-bold px-1.5 py-0.5 rounded-full bg-[#a560f0] text-white uppercase tracking-tight">Próx.</span>
+            <Trophy className="w-4 h-4 text-[#a560f0]" />
+            <span className="text-xs font-display font-bold">Premios</span>
           </button>
 
           {/* Días leídos */}

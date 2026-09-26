@@ -517,19 +517,10 @@ export async function saveStudentNote(studentId: string, day: number, note: stri
 
 export async function fetchInstructorData(): Promise<{ students: Student[]; stats: InstructorStats }> {
   try {
-    // 1. Intentar purgar de forma proactiva estudiantes de prueba demo en Supabase
-    try {
-      await supabase
-        .from('students')
-        .delete()
-        .or('email.ilike.%@seminario.org,id.like.11111111-0000-0000-0000-%');
-    } catch {}
-
-    // 2. Leer todos los alumnos reales (requiere que el usuario sea instructor en RLS)
+    // 1. Leer todos los alumnos reales (requiere que el usuario sea instructor en RLS)
     const { data: rows, error } = await supabase
       .from('students_full')
       .select('*')
-      .not('email', 'ilike', '%@seminario.org')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -640,14 +631,6 @@ export async function logoutStudent(): Promise<void> {
 // ── LIMPIEZA DE DEMOS ─────────────────────────────────────────────────────────
 
 export async function cleanDemoStudents(): Promise<Student[]> {
-  try {
-    await supabase.from('student_unlocked_badges').delete().like('student_id', '11111111-0000-0000-0000-%');
-    await supabase.from('student_notes').delete().like('student_id', '11111111-0000-0000-0000-%');
-    await supabase.from('student_completed_days').delete().like('student_id', '11111111-0000-0000-0000-%');
-    await supabase.from('students').delete().or('email.ilike.%@seminario.org,id.like.11111111-0000-0000-0000-%');
-  } catch (err) {
-    console.warn('cleanDemoStudents Supabase notice:', err);
-  }
   try {
     localStorage.removeItem(LOCAL_INSTRUCTOR_STUDENTS_KEY);
   } catch {}

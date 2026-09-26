@@ -161,6 +161,30 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
   }
 }
 
+// ── SESSION ───────────────────────────────────────────────────────────────────
+
+export async function getCurrentSessionStudent(): Promise<Student | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { data, error } = await supabase
+        .from('students_full')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (data && !error) {
+        const student = rowToStudent(data);
+        saveLocalStudent(student);
+        return student;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not get session from Supabase:', err);
+  }
+  return null;
+}
+
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 
 export async function loginStudent(email: string, password?: string): Promise<Student> {

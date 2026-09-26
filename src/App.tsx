@@ -9,7 +9,7 @@ import { MinisteringGuideModal } from './components/MinisteringGuideModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { DayReading, Student, SpecialBadge } from './types';
-import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent } from './utils/api';
+import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent } from './utils/api';
 import { SPECIAL_BADGES } from './data/readings';
 
 export default function App() {
@@ -36,19 +36,29 @@ export default function App() {
     const initStudent = async () => {
       setLoading(true);
       try {
+        // 1. Verificar si hay sesión activa en Supabase Auth
+        const sessionStudent = await getCurrentSessionStudent();
+        if (sessionStudent) {
+          setStudent(sessionStudent);
+          return;
+        }
+
+        // 2. Si no hay sesión activa pero hay credenciales guardadas
         const saved = getLocalStudent();
-        if (saved && saved.email) {
+        if (saved && saved.email && saved.password) {
           try {
             const synced = await loginStudent(saved.email, saved.password);
             setStudent(synced);
+            return;
           } catch {
-            setStudent(saved);
+            // Si las credenciales fallan, limpiamos la sesión inválida
+            clearLocalStudent();
           }
-        } else {
-          // No user logged in yet -> Open login / registration modal
-          setStudent(null);
-          setIsAuthModalOpen(true);
         }
+
+        // 3. Si no hay sesión válida, abrir modal de login/registro
+        setStudent(null);
+        setIsAuthModalOpen(true);
       } catch (err) {
         console.warn('Initialization error:', err);
         setIsAuthModalOpen(true);

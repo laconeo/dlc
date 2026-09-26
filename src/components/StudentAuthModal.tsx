@@ -151,7 +151,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     if (!firstName.trim()) { setError('Ingresa tu nombre.'); return; }
     if (!lastName.trim()) { setError('Ingresa tu apellido.'); return; }
     if (!email.includes('@')) { setError('Ingresa un correo válido.'); return; }
-    if (password.length < 4) { setError('La contraseña debe tener al menos 4 caracteres.'); return; }
+    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
     if (password !== confirmPassword) { setError('Las contraseñas no coinciden.'); return; }
     setLoading(true); setError(null);
     try {

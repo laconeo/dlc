@@ -191,12 +191,6 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
     } finally { setLoading(false); }
   };
 
-  const demoAccounts = [
-    { name: 'Lucas Romero', email: 'lucas.romero@seminario.org' },
-    { name: 'Valentina Silva', email: 'valentina.silva@seminario.org' },
-    { name: 'Mateo Gómez', email: 'mateo.gomez@seminario.org' },
-  ];
-
   /* ── 🌟 PANTALLA DE BIENVENIDA CELEBRATORIA ── */
   if (registeredStudent) {
     const isSuper = (registeredStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
@@ -332,7 +326,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
   /* ── LAYOUT: Formularios normales ── */
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col animate-fadeIn"
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden animate-fadeIn"
       style={{ background: '#ffffff', maxWidth: 480, margin: '0 auto', left: 0, right: 0 }}
     >
       {/* ══ STICKY TOP HEADER ══ */}
@@ -340,7 +334,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         style={{
           background: '#58cc02',
           borderBottom: '3px solid #46a302',
-          padding: '20px 20px 16px',
+          padding: '16px 20px 12px',
           textAlign: 'center',
           flexShrink: 0,
         }}
@@ -349,16 +343,16 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         <div
           className="font-display"
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: 18,
+            width: 46,
+            height: 46,
+            borderRadius: 15,
             background: '#ffffff',
-            border: '3px solid #46a302',
+            border: '2.5px solid #46a302',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 10px',
-            fontSize: 28,
+            margin: '0 auto 6px',
+            fontSize: 22,
           }}
         >
           📖
@@ -366,11 +360,11 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
 
         <p
           className="font-display font-bold"
-          style={{ fontSize: 20, color: '#ffffff', lineHeight: 1.2 }}
+          style={{ fontSize: 19, color: '#ffffff', lineHeight: 1.2 }}
         >
           «Detente, Lee, Conecta»
         </p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
           Desafío de lectura · 30 días
         </p>
 
@@ -380,8 +374,8 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
             display: 'flex',
             background: 'rgba(0,0,0,0.18)',
             borderRadius: 12,
-            padding: 4,
-            marginTop: 14,
+            padding: 3,
+            marginTop: 10,
             gap: 4,
           }}
         >
@@ -393,13 +387,13 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               className="font-display font-bold transition-all"
               style={{
                 flex: 1,
-                height: 38,
+                height: 36,
                 borderRadius: 10,
-                fontSize: 15,
+                fontSize: 14,
                 border: 'none',
                 cursor: 'pointer',
                 background: mode === m ? '#ffffff' : 'transparent',
-                color: mode === m ? '#46a302' : 'rgba(255,255,255,0.9)',
+                color: mode === m ? '#46a302' : 'rgba(255,255,255,0.95)',
               }}
             >
               {m === 'login' ? 'Ingresar' : 'Registrarse'}
@@ -408,10 +402,10 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         </div>
       </div>
 
-      {/* ══ SCROLLABLE FORM AREA ══ */}
+      {/* ══ FORM AREA (sin scroll en login) ══ */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar"
-        style={{ padding: '0 20px 24px' }}
+        className={`flex-1 ${mode === 'login' ? 'overflow-hidden flex flex-col justify-center' : 'overflow-y-auto no-scrollbar'}`}
+        style={{ padding: mode === 'login' ? '12px 20px 20px' : '0 20px 24px' }}
       >
         {/* Error */}
         {error && (
@@ -492,35 +486,6 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
                 Regístrate aquí
               </button>
             </p>
-
-            {/* Demo accounts */}
-            <div style={{ borderTop: '2px solid #f0f0f0', paddingTop: 14, marginTop: 4 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#afafaf', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                Cuentas de prueba
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                {demoAccounts.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => { setEmail(acc.email); setPassword('seminario123'); setError(null); }}
-                    className="font-display"
-                    style={{
-                      padding: '9px 4px',
-                      background: '#f7f7f7',
-                      border: '2px solid #e5e5e5',
-                      borderRadius: 10,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: '#3c3c3c',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {acc.name.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Continue as existing user */}
             {onClose && currentStudent && (

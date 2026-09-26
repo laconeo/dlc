@@ -28,7 +28,9 @@ select id from auth.users where lower(email) = 'laconeo@gmail.com'
 on conflict do nothing;
 
 -- 4. Actualizar la vista students_full para incluir la columna role
-create or replace view public.students_full as
+drop view if exists public.students_full cascade;
+
+create view public.students_full as
 select
   s.id,
   s.email,

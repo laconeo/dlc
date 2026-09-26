@@ -283,8 +283,9 @@ comment on view public.instructor_stats is
 -- 10. FULL STUDENT VIEW (convenience for the API)
 --     Returns one row per student with arrays aggregated back
 --     so your TypeScript API can map it directly to Student.
--- ──────────────────────────────────────────────────────────
-create or replace view public.students_full as
+drop view if exists public.students_full cascade;
+
+create view public.students_full as
 select
   s.id,
   s.email,

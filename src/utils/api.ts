@@ -526,6 +526,10 @@ export async function updateStudentProfile(
   studentId: string,
   params: UpdateProfileParams
 ): Promise<Student> {
+  const { data: authData } = await supabase.auth.getUser();
+  const currentUserId = authData?.user?.id;
+  const targetId = currentUserId || studentId;
+
   const payload: any = {
     updated_at: new Date().toISOString(),
   };
@@ -534,17 +538,8 @@ export async function updateStudentProfile(
   if (params.ward !== undefined) payload.ward = params.ward.trim();
   if (params.seminaryClass !== undefined) payload.seminary_class = params.seminaryClass.trim();
 
-  try {
-    const { error: updateError } = await supabase
-      .from('students')
-      .update(payload)
-      .eq('id', studentId);
-
-    if (updateError) {
-      console.warn('Error updating students table in Supabase:', updateError);
-    }
-
-    // Actualizar metadata en Supabase Auth si es posible
+  // 1. Siempre sincronizar metadatos en Supabase Auth
+  if (authData?.user) {
     try {
       await supabase.auth.updateUser({
         data: {
@@ -555,15 +550,55 @@ export async function updateStudentProfile(
           seminary_class: payload.seminary_class,
         },
       });
-    } catch (e) {
-      console.warn('Could not update auth user metadata:', e);
+    } catch (authErr) {
+      console.warn('Could not update Supabase Auth user metadata:', authErr);
+    }
+  }
+
+  // 2. Actualizar en la tabla public.students
+  try {
+    const { data: updatedRows, error: updateError } = await supabase
+      .from('students')
+      .update(payload)
+      .eq('id', targetId)
+      .select();
+
+    if (updateError) {
+      console.warn('Update en public.students falló, intentando upsert:', updateError);
+      // Si la fila no existía o falló update, intentar upsert con los campos requeridos
+      const { error: upsertErr } = await supabase
+        .from('students')
+        .upsert({
+          id: targetId,
+          email: authData?.user?.email || undefined,
+          avatar_seed: payload.first_name || 'student',
+          ...payload,
+        }, { onConflict: 'id' });
+
+      if (upsertErr) {
+        throw new Error(updateError.message || upsertErr.message);
+      }
+    } else if (!updatedRows || updatedRows.length === 0) {
+      // Si update afectó 0 filas (por RLS o porque aún no existía en students)
+      const { error: upsertErr } = await supabase
+        .from('students')
+        .upsert({
+          id: targetId,
+          email: authData?.user?.email || undefined,
+          avatar_seed: payload.first_name || 'student',
+          ...payload,
+        }, { onConflict: 'id' });
+
+      if (upsertErr) {
+        throw new Error(upsertErr.message);
+      }
     }
 
-    // Obtener datos actualizados desde students_full
+    // 3. Obtener datos actualizados desde students_full
     const { data: fullRow } = await supabase
       .from('students_full')
       .select('*')
-      .eq('id', studentId)
+      .eq('id', targetId)
       .maybeSingle();
 
     if (fullRow) {
@@ -571,13 +606,15 @@ export async function updateStudentProfile(
       saveLocalStudent(updatedStudent);
       return updatedStudent;
     }
-  } catch (err) {
-    console.warn('updateStudentProfile server call failed, using local update:', err);
+  } catch (err: any) {
+    console.error('Error al guardar en Supabase:', err);
+    // Si hay error en la base de datos, lanzamos el error para que la UI lo informe claramente
+    throw new Error(err.message || 'No se pudo guardar la información en Supabase.');
   }
 
-  // Fallback local
+  // Fallback local sincronizado
   const local = getLocalStudent();
-  if (local && local.id === studentId) {
+  if (local) {
     if (params.firstName !== undefined) local.firstName = params.firstName.trim();
     if (params.lastName !== undefined) local.lastName = params.lastName.trim();
     if (local.firstName || local.lastName) {

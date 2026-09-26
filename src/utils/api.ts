@@ -93,21 +93,94 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
   const role: UserRole = cleanEmail === SUPERADMIN_EMAIL ? 'instructor' : 'alumno';
 
   try {
-    // 1. Crear usuario en Supabase Auth
+    // 1. Crear usuario en Supabase Auth pasando metadata para triggers
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
       password: password.trim(),
+      options: {
+        data: {
+          first_name: cleanFirst,
+          last_name: cleanLast,
+          name: `${cleanFirst} ${cleanLast}`,
+          role,
+          ward: ward?.trim() ?? '',
+          seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
+        },
+      },
     });
 
-    if (authError) throw new Error(authError.message);
-    if (!authData.user) throw new Error('No se pudo crear el usuario.');
+    if (authError) {
+      if (authError.message.toLowerCase().includes('already registered')) {
+        throw new Error('Este correo ya está registrado. Por favor ve a la pestaña "Iniciar Sesión".');
+      }
+      throw new Error(authError.message);
+    }
+
+    if (!authData.user) {
+      throw new Error('No se pudo crear el usuario en Supabase.');
+    }
 
     const userId = authData.user.id;
 
-    // 2. Insertar perfil en public.students (role default 'alumno', o 'instructor' para superadmin)
-    const { data, error } = await supabase
+    // 2. Insertar / Actualizar perfil en public.students (upsert resiliente)
+    const { data: insertedData, error: insertError } = await supabase
       .from('students')
-      .insert({
+      .upsert(
+        {
+          id: userId,
+          email: cleanEmail,
+          first_name: cleanFirst,
+          last_name: cleanLast,
+          role,
+          ward: ward?.trim() ?? '',
+          seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
+          avatar_seed: cleanFirst,
+        },
+        { onConflict: 'id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (insertError) {
+      console.warn('Advertencia al insertar perfil en students (puede haberlo creado el trigger):', insertError.message);
+    }
+
+    // Si es superadmin o instructor, asegurar que esté en la tabla instructors
+    if (role === 'instructor') {
+      try {
+        await supabase.from('instructors').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      } catch {}
+    }
+
+    // 3. Cargar perfil desde students_full o construirlo
+    let student: Student;
+    try {
+      const { data: fullData } = await supabase
+        .from('students_full')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (fullData) {
+        student = rowToStudent(fullData);
+      } else {
+        student = rowToStudent({
+          ...(insertedData || {}),
+          id: userId,
+          email: cleanEmail,
+          first_name: cleanFirst,
+          last_name: cleanLast,
+          role,
+          ward: ward?.trim() ?? '',
+          seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
+          completed_days: [],
+          notes: {},
+          unlocked_badge_ids: [],
+        });
+      }
+    } catch {
+      student = rowToStudent({
+        ...(insertedData || {}),
         id: userId,
         email: cleanEmail,
         first_name: cleanFirst,
@@ -115,26 +188,27 @@ export async function registerStudent(params: RegisterParams): Promise<Student> 
         role,
         ward: ward?.trim() ?? '',
         seminary_class: seminaryClass?.trim() ?? 'Seminario - Antiguo Testamento',
-        avatar_seed: cleanFirst,
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    // Si es superadmin, también asegurar que esté en la tabla instructors
-    if (role === 'instructor') {
-      try {
-        await supabase.from('instructors').upsert({ user_id: userId }, { onConflict: 'user_id' });
-      } catch {}
+        completed_days: [],
+        notes: {},
+        unlocked_badge_ids: [],
+      });
     }
 
-    const student = rowToStudent({ ...data, role, completed_days: [], notes: {}, unlocked_badge_ids: [] });
     saveLocalStudent(student);
     return student;
 
   } catch (err: any) {
-    console.warn('Supabase register failed, falling back to local:', err);
+    // Si es error de negocio (credenciales, ya existe, etc.) lo lanzamos directamente a la UI
+    if (
+      err.message?.includes('ya está registrado') ||
+      err.message?.includes('contraseña') ||
+      err.message?.includes('Password') ||
+      err.message?.includes('valid')
+    ) {
+      throw err;
+    }
+
+    console.warn('Supabase register error, falling back to local:', err);
 
     // Fallback local
     const localStudent: Student = {
@@ -171,7 +245,7 @@ export async function getCurrentSessionStudent(): Promise<Student | null> {
         .from('students_full')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         const student = rowToStudent(data);
@@ -200,26 +274,77 @@ export async function loginStudent(email: string, password?: string): Promise<St
     });
 
     if (authError) {
-      if (authError.message.toLowerCase().includes('invalid')) {
-        throw new Error('Correo o contraseña incorrectos.');
+      const msg = authError.message.toLowerCase();
+      if (msg.includes('email not confirmed')) {
+        throw new Error('Tu correo aún no ha sido confirmado. Revisa tu bandeja de entrada o desmarca "Confirm email" en el panel de Supabase.');
+      }
+      if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+        throw new Error('Correo o contraseña incorrectos. Si aún no te has registrado en Supabase, haz clic en "Crear Cuenta".');
       }
       throw new Error(authError.message);
     }
 
     if (!authData.user) throw new Error('No se pudo iniciar sesión.');
 
+    const userId = authData.user.id;
+
     // 2. Cargar perfil completo desde la vista students_full
     const { data, error } = await supabase
       .from('students_full')
       .select('*')
-      .eq('id', authData.user.id)
-      .single();
+      .eq('id', userId)
+      .maybeSingle();
 
-    if (error || !data) throw new Error('No se encontró el perfil del alumno.');
+    if (data && !error) {
+      const student = rowToStudent(data);
+      saveLocalStudent(student);
+      return student;
+    }
 
-    const student = rowToStudent(data);
-    saveLocalStudent(student);
-    return student;
+    // 3. Auto-reparación: si el usuario existe en auth pero aún no tiene fila en students
+    const meta = authData.user.user_metadata || {};
+    const firstName = meta.first_name || cleanEmail.split('@')[0];
+    const lastName = meta.last_name || 'Seminario';
+    const role: UserRole = cleanEmail === SUPERADMIN_EMAIL ? 'instructor' : (meta.role || 'alumno');
+
+    const { data: newRow } = await supabase
+      .from('students')
+      .upsert(
+        {
+          id: userId,
+          email: cleanEmail,
+          first_name: firstName,
+          last_name: lastName,
+          role,
+          ward: meta.ward || '',
+          seminary_class: meta.seminary_class || 'Seminario - Antiguo Testamento',
+          avatar_seed: firstName,
+        },
+        { onConflict: 'id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (role === 'instructor') {
+      try {
+        await supabase.from('instructors').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      } catch {}
+    }
+
+    const fallbackStudent = rowToStudent({
+      ...(newRow || {}),
+      id: userId,
+      email: cleanEmail,
+      first_name: firstName,
+      last_name: lastName,
+      role,
+      completed_days: [],
+      notes: {},
+      unlocked_badge_ids: [],
+    });
+
+    saveLocalStudent(fallbackStudent);
+    return fallbackStudent;
 
   } catch (err: any) {
     // Re-lanzar errores de negocio (no de red)

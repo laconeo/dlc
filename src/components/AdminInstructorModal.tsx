@@ -17,10 +17,12 @@ import {
   Sparkles,
   UserCheck,
   ArrowLeft,
+  MapPin,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
 import { fetchInstructorData, toggleStudentDay, updateStudentRole } from '../utils/api';
 import { SPECIAL_BADGES } from '../data/readings';
+import { getUserInitials } from './TopHeader';
 
 interface AdminInstructorModalProps {
   isOpen?: boolean;
@@ -79,6 +81,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWard, setSelectedWard] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'streak7' | 'completed' | 'recent'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -150,6 +153,17 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   };
 
+  const uniqueWards = React.useMemo(() => {
+    const map = new Map<string, number>();
+    students.forEach((s) => {
+      const w = (s.ward || '').trim();
+      if (w) {
+        map.set(w, (map.get(w) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [students]);
+
   const exportReport = () => {
     const lines = [
       'REPORTE – «DETENTE, LEE, CONECTA»',
@@ -158,7 +172,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
       '---',
       ...students.map(
         (s) =>
-          `• [${s.role || 'alumno'}] ${s.name} (${s.email}) | Racha: ${s.currentStreak}d | Días: ${s.completedDays.length}/30 | Cartas: ${s.unlockedBadgeIds.length}`
+          `• [${s.role || 'alumno'}] ${s.name} (${s.email}) | Barrio/Rama: ${s.ward || '—'} | Clase: ${s.seminaryClass || '—'} | Racha: ${s.currentStreak}d | Días: ${s.completedDays.length}/30 | Cartas: ${s.unlockedBadgeIds.length}`
       ),
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
@@ -171,13 +185,28 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   };
 
   const filteredStudents = students.filter((s) => {
-    const q = searchQuery.toLowerCase();
-    const match =
-      s.name.toLowerCase().includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      (s.seminaryClass?.toLowerCase() || '').includes(q) ||
-      (s.role || 'alumno').toLowerCase().includes(q);
-    if (!match) return false;
+    // 1. Filtro por Barrio/Rama seleccionado en el dropdown
+    if (selectedWard !== 'all') {
+      const sWard = (s.ward || '').trim().toLowerCase();
+      if (sWard !== selectedWard.toLowerCase()) return false;
+    }
+
+    // 2. Filtro de búsqueda por texto
+    const q = searchQuery.toLowerCase().trim();
+    if (q) {
+      const match =
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.firstName || '').toLowerCase().includes(q) ||
+        (s.lastName || '').toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q) ||
+        (s.ward || '').toLowerCase().includes(q) ||
+        (s.seminaryClass || '').toLowerCase().includes(q) ||
+        (s.role || 'alumno').toLowerCase().includes(q);
+
+      if (!match) return false;
+    }
+
+    // 3. Filtro por estado / categoría
     if (selectedFilter === 'instructors') return isUserInstructor(s);
     if (selectedFilter === 'streak7') return s.currentStreak >= 7;
     if (selectedFilter === 'completed') return s.completedDays.length >= 30;
@@ -303,30 +332,103 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             background: '#ffffff',
           }}
         >
-          {/* Search */}
-          <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
-            <input
-              id="instructor-search-students"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre, correo o clase..."
-              style={{
-                width: '100%',
-                padding: '11px 14px 11px 44px',
-                fontSize: 15,
-                fontFamily: 'inherit',
-                background: '#f7f7f7',
-                border: '2px solid #e5e5e5',
-                borderRadius: 12,
-                outline: 'none',
-                color: '#3c3c3c',
-                boxSizing: 'border-box',
-              }}
-              onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
-              onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
-            />
+          {/* Search + Ward Filter row */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
+              <input
+                id="instructor-search-students"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por barrio/rama, nombre, clase..."
+                style={{
+                  width: '100%',
+                  padding: '10px 14px 10px 42px',
+                  fontSize: 14,
+                  fontFamily: 'inherit',
+                  background: '#f7f7f7',
+                  border: '2px solid #e5e5e5',
+                  borderRadius: 12,
+                  outline: 'none',
+                  color: '#3c3c3c',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: '#e5e5e5',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#777777',
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Selector rápido de Barrio / Rama */}
+            {uniqueWards.length > 0 && (
+              <div style={{ position: 'relative', minWidth: 170 }}>
+                <MapPin
+                  style={{
+                    position: 'absolute',
+                    left: 11,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 15,
+                    height: 15,
+                    color: selectedWard !== 'all' ? '#0284c7' : '#afafaf',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <select
+                  id="instructor-ward-filter"
+                  value={selectedWard}
+                  onChange={(e) => setSelectedWard(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: 40,
+                    padding: '8px 12px 8px 32px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    fontFamily: 'inherit',
+                    background: selectedWard !== 'all' ? '#f0f9ff' : '#f7f7f7',
+                    border: `2px solid ${selectedWard !== 'all' ? '#0284c7' : '#e5e5e5'}`,
+                    borderRadius: 12,
+                    outline: 'none',
+                    color: selectedWard !== 'all' ? '#0369a1' : '#3c3c3c',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <option value="all">📍 Todos los Barrios/Ramas</option>
+                  {uniqueWards.map(([ward, count]) => (
+                    <option key={ward} value={ward}>
+                      {ward} ({count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Filter pills */}
@@ -371,10 +473,14 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             >
               <Users style={{ width: 44, height: 44, color: '#afafaf', margin: '0 auto 12px' }} />
               <p style={{ fontSize: 16, fontWeight: 700, color: '#3c3c3c' }}>
-                No hay más alumnos registrados aún
+                {searchQuery || selectedWard !== 'all'
+                  ? 'No se encontraron alumnos con ese criterio de búsqueda'
+                  : 'No hay más alumnos registrados aún'}
               </p>
               <p style={{ fontSize: 13, color: '#777777', marginTop: 6, maxWidth: 320, marginInline: 'auto' }}>
-                Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.
+                {searchQuery || selectedWard !== 'all'
+                  ? 'Prueba borrando la búsqueda o cambiando el filtro de Barrio/Rama seleccionado.'
+                  : 'Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.'}
               </p>
             </div>
           ) : (
@@ -384,6 +490,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                 const percent = Math.round((student.completedDays.length / 30) * 100);
                 const isTargetSuper = (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
                 const isTargetInstructor = isUserInstructor(student);
+                const initials = getUserInitials(student);
 
                 return (
                   <div
@@ -397,7 +504,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                       className="flex items-center gap-3 cursor-pointer"
                       style={{ padding: '12px 14px' }}
                     >
-                      {/* Avatar */}
+                      {/* Avatar with 2 initials */}
                       <div
                         className="font-display font-bold text-white flex items-center justify-center shrink-0"
                         style={{
@@ -407,10 +514,11 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           background: isTargetInstructor ? '#3c3c3c' : '#1cb0f6',
                           color: isTargetInstructor ? '#ffc800' : '#ffffff',
                           border: isTargetInstructor ? '2px solid #ffc800' : 'none',
-                          fontSize: 18,
+                          fontSize: 14,
+                          letterSpacing: '0.5px',
                         }}
                       >
-                        {student.name.charAt(0).toUpperCase()}
+                        {initials}
                       </div>
 
                       {/* Name + email + role */}
@@ -464,13 +572,32 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <p
-                          className="truncate flex items-center gap-1 mt-0.5"
-                          style={{ fontSize: 12, color: '#777777' }}
-                        >
-                          <Mail style={{ width: 12, height: 12, flexShrink: 0 }} />
-                          {student.email}
-                        </p>
+
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <p
+                            className="truncate flex items-center gap-1"
+                            style={{ fontSize: 12, color: '#777777' }}
+                          >
+                            <Mail style={{ width: 12, height: 12, flexShrink: 0 }} />
+                            {student.email}
+                          </p>
+
+                          {student.ward && (
+                            <span
+                              className="inline-flex items-center gap-1 font-semibold rounded-md px-1.5 py-0.5"
+                              style={{
+                                fontSize: 11,
+                                background: '#f0f9ff',
+                                color: '#0369a1',
+                                border: '1px solid #bae6fd',
+                              }}
+                              title={`Barrio/Rama: ${student.ward}`}
+                            >
+                              <MapPin style={{ width: 10, height: 10 }} />
+                              <span className="truncate max-w-[130px]">{student.ward}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Streak + progress + toggle */}

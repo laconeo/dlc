@@ -100,7 +100,7 @@ export const PathView: React.FC<PathViewProps> = ({
               className="font-display font-bold leading-tight"
               style={{ fontSize: 18, color: '#3c3c3c' }}
             >
-              «Detente, Lee, Conecta»
+              3 minutos con Jesucristo
             </p>
             <p style={{ fontSize: 13, color: '#777777', fontWeight: 600 }}>
               Desafío 30 días · Antiguo Testamento

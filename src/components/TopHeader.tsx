@@ -1,24 +1,50 @@
 import React from 'react';
-import { Flame, Award, BookOpen, User, Shield, Trophy } from 'lucide-react';
+import { Flame, BookOpen, User, Shield } from 'lucide-react';
 import { Student, isUserInstructor } from '../types';
 
 interface TopHeaderProps {
   student: Student | null;
   onOpenAdmin: () => void;
-  onOpenBadges: () => void;
   onOpenProfile: () => void;
+}
+
+export function getUserInitials(student: Student | null): string {
+  if (!student) return '';
+  const first = student.firstName?.trim();
+  const last = student.lastName?.trim();
+  if (first && last) {
+    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+  }
+  const cleanName = (student.name || '').trim();
+  if (cleanName) {
+    const parts = cleanName.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+    }
+    if (parts.length === 1 && parts[0].length >= 2) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toUpperCase();
+    }
+  }
+  if (student.email) {
+    const prefix = student.email.split('@')[0].replace(/[^a-zA-Z]/g, '');
+    if (prefix.length >= 2) return prefix.slice(0, 2).toUpperCase();
+    if (prefix.length === 1) return prefix.toUpperCase();
+  }
+  return 'AL';
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
   student,
   onOpenAdmin,
-  onOpenBadges,
   onOpenProfile,
 }) => {
   const streak = student?.currentStreak || 0;
-  const badgesCount = student?.unlockedBadgeIds?.length || 0;
   const completedCount = student?.completedDays?.length || 0;
   const canAccessAdmin = isUserInstructor(student);
+  const initials = getUserInitials(student);
 
   return (
     <header
@@ -38,29 +64,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <span className="text-base font-display font-bold">{streak}</span>
         </div>
 
-        {/* Center: Badges & Days */}
-        <div className="flex items-center gap-2">
-          {/* Premios */}
-          <button
-            id="badges-shortcut-btn"
-            onClick={onOpenBadges}
-            className="pill-duo border-[#a560f0] bg-[#f5eeff] active:scale-95 transition-transform flex items-center gap-1.5"
-            style={{ color: '#a560f0' }}
-            title="Premios del Desafío"
-          >
-            <Trophy className="w-4 h-4 text-[#a560f0]" />
-            <span className="text-xs font-display font-bold">Premios</span>
-          </button>
-
-          {/* Días leídos */}
-          <div
-            className="pill-duo border-[#58cc02] bg-[#e8f9d9]"
-            style={{ color: '#46a302' }}
-            title="Días leídos"
-          >
-            <BookOpen className="w-4 h-4" />
-            <span className="text-sm font-display font-bold">{completedCount}/30</span>
-          </div>
+        {/* Center: Días leídos */}
+        <div
+          className="pill-duo border-[#58cc02] bg-[#e8f9d9]"
+          style={{ color: '#46a302' }}
+          title="Días leídos"
+        >
+          <BookOpen className="w-4 h-4" />
+          <span className="text-sm font-display font-bold">{completedCount}/30</span>
         </div>
 
         {/* Right: Admin (solo instructores) + Avatar */}
@@ -81,13 +92,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             id="student-profile-btn"
             onClick={onOpenProfile}
-            className="w-10 h-10 rounded-full text-white flex items-center justify-center font-display font-bold text-base shadow-sm active:scale-95 transition-transform border-2 border-[#e5e5e5]"
-            style={{ background: '#1cb0f6' }}
+            className="w-10 h-10 rounded-full text-white flex items-center justify-center font-display font-bold text-sm shadow-sm active:scale-95 transition-transform border-2 border-[#1899d6]"
+            style={{ background: '#1cb0f6', letterSpacing: '0.5px' }}
             title={student?.name || 'Mi Perfil'}
           >
-            {student?.name
-              ? student.name.charAt(0).toUpperCase()
-              : <User className="w-5 h-5" />}
+            {initials ? initials : <User className="w-5 h-5" />}
           </button>
         </div>
       </div>

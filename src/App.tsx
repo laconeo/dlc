@@ -174,10 +174,6 @@ export default function App() {
           <TopHeader
             student={student}
             onOpenAdmin={() => setCurrentPage('instructor')}
-            onOpenBadges={() => {
-              setSelectedBadge(SPECIAL_BADGES.abraham);
-              setCurrentPage('cards');
-            }}
             onOpenProfile={() => setCurrentPage('profile')}
           />
         )}

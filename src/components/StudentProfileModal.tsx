@@ -19,6 +19,7 @@ import {
 import { Student, isUserInstructor, SUPERADMIN_EMAIL } from '../types';
 import { SPECIAL_BADGES } from '../data/readings';
 import { updateStudentProfile } from '../utils/api';
+import { getUserInitials } from './TopHeader';
 
 interface StudentProfileModalProps {
   student: Student | null;
@@ -200,11 +201,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               borderRadius: '50%',
               background: isInstructor ? '#3c3c3c' : '#ffc800',
               border: `4px solid ${isInstructor ? '#ffc800' : 'rgba(255,255,255,0.5)'}`,
-              fontSize: 36,
+              fontSize: 28,
+              letterSpacing: '1px',
               color: isInstructor ? '#ffc800' : '#3c3c3c',
             }}
           >
-            {student?.name ? student.name.charAt(0).toUpperCase() : <User style={{ width: 40, height: 40 }} />}
+            {getUserInitials(student) || <User style={{ width: 40, height: 40 }} />}
           </div>
 
           <h1

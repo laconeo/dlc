@@ -1,0 +1,18 @@
+{
+  "name": "3 Minutos con Jesucristo - Detente, Lee, Conecta",
+  "short_name": "3 Minutos",
+  "description": "Desafío de lectura diaria de 30 días del Antiguo Testamento",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#58cc02",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

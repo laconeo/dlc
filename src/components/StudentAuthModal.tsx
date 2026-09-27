@@ -411,98 +411,51 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
       className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn relative"
       style={{ overscrollBehavior: 'none' }}
     >
-      {/* ══ STICKY TOP HEADER ══ */}
+      {/* ══ TOP BRANDING: LOGO ══ */}
       <div
-        style={{
-          background: '#58cc02',
-          borderBottom: '3px solid #46a302',
-          padding: '16px 20px 12px',
-          textAlign: 'center',
-          flexShrink: 0,
-        }}
+        className="flex flex-col items-center pt-5 pb-2 px-5 shrink-0 bg-white"
       >
-        {/* Logo */}
-        <div
-          className="font-display"
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: 15,
-            background: '#ffffff',
-            border: '2.5px solid #46a302',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 6px',
-            fontSize: 22,
-          }}
-        >
-          {mode === 'forgot_password' || mode === 'reset_password' ? '🔐' : '📖'}
-        </div>
-
-        <p
-          className="font-display font-bold"
-          style={{ fontSize: 19, color: '#ffffff', lineHeight: 1.2 }}
-        >
-          {mode === 'forgot_password'
-            ? 'Recuperar Contraseña'
-            : mode === 'reset_password'
-            ? 'Nueva Contraseña'
-            : '«Detente, Lee, Conecta»'}
-        </p>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
-          {mode === 'forgot_password'
-            ? 'Te ayudamos a recuperar tu acceso'
-            : mode === 'reset_password'
-            ? 'Configura tu nueva clave de acceso'
-            : 'Desafío de lectura · 30 días'}
-        </p>
+        <img
+          src={`${import.meta.env.BASE_URL}logo.png`}
+          alt="3 Minutos con Jesucristo"
+          className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl shadow-md border border-slate-100 mb-3 select-none"
+        />
 
         {/* Mode tabs or Back Button */}
-        <div style={{ marginTop: 10 }}>
-          {mode === 'login' || mode === 'register' ? (
-            <div
-              style={{
-                display: 'flex',
-                background: 'rgba(0,0,0,0.18)',
-                borderRadius: 12,
-                padding: 3,
-                gap: 4,
-              }}
-            >
-              {(['login', 'register'] as AuthMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => switchMode(m)}
-                  className="font-display font-bold transition-all"
-                  style={{
-                    flex: 1,
-                    height: 36,
-                    borderRadius: 10,
-                    fontSize: 14,
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: mode === m ? '#ffffff' : 'transparent',
-                    color: mode === m ? '#46a302' : 'rgba(255,255,255,0.95)',
-                  }}
-                >
-                  {m === 'login' ? 'Ingresar' : 'Registrarse'}
-                </button>
-              ))}
-            </div>
-          ) : (
+        {mode === 'login' || mode === 'register' ? (
+          <div
+            className="w-full max-w-xs flex bg-[#f0f0f0] p-1 rounded-2xl border border-[#e5e5e5]"
+          >
+            {(['login', 'register'] as AuthMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`flex-1 py-2 font-display font-bold text-sm rounded-xl transition-all cursor-pointer border-none ${
+                  mode === m
+                    ? 'bg-[#58cc02] text-white shadow-sm'
+                    : 'bg-transparent text-[#777777] hover:text-[#3c3c3c]'
+                }`}
+              >
+                {m === 'login' ? 'Ingresar' : 'Registrarse'}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1 w-full max-w-xs">
+            <h2 className="font-display font-bold text-base text-[#3c3c3c]">
+              {mode === 'forgot_password' ? 'Recuperar Contraseña' : 'Nueva Contraseña'}
+            </h2>
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className="inline-flex items-center gap-1.5 text-white/95 text-xs font-bold font-display px-3 py-1.5 rounded-full hover:bg-white/20 transition-all cursor-pointer"
-              style={{ background: 'rgba(0,0,0,0.22)' }}
+              className="inline-flex items-center gap-1.5 text-[#58cc02] hover:text-[#46a302] text-xs font-bold font-display px-3 py-1 rounded-full hover:bg-[#e8f9d9] transition-all cursor-pointer border-none bg-transparent"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Volver a Iniciar Sesión</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ══ FORM AREA (sin scroll en login, forgot y reset) ══ */}

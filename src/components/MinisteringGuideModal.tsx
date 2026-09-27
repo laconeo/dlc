@@ -99,10 +99,10 @@ export const MinisteringGuideModal: React.FC<MinisteringGuideModalProps> = ({
             className="font-display font-bold text-white"
             style={{ fontSize: 24, lineHeight: 1.2 }}
           >
-            «Detente, Lee, Conecta»
+            3 Minutos con Jesucristo
           </h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 4 }}>
-            3 Minutos con Jesucristo · Ministración a Su manera
+            Ministración a Su manera
           </p>
         </div>
 

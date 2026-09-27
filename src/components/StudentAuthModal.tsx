@@ -418,7 +418,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
         <img
           src={`${import.meta.env.BASE_URL}logo.png`}
           alt="3 Minutos con Jesucristo"
-          className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl shadow-md border border-slate-100 mb-2 select-none"
+          className="w-48 h-48 sm:w-56 sm:h-56 max-h-[220px] max-w-[220px] object-contain rounded-3xl shadow-lg border border-slate-100 mb-2 select-none"
         />
 
         {mode === 'login' && (

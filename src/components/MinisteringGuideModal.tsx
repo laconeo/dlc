@@ -107,7 +107,7 @@ export const MinisteringGuideModal: React.FC<MinisteringGuideModalProps> = ({
         </div>
 
         {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '16px 16px 0' }}>
+        <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '16px 16px 32px' }}>
 
           {/* Purpose */}
           <div
@@ -184,17 +184,6 @@ export const MinisteringGuideModal: React.FC<MinisteringGuideModalProps> = ({
               ))}
             </div>
           </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div style={{ padding: '12px 16px 16px', borderTop: '2px solid #f0f0f0', background: '#ffffff', flexShrink: 0 }}>
-          <button
-            onClick={onClose}
-            className="btn-duo-green font-display w-full flex items-center justify-center"
-            style={{ height: 52, borderRadius: 16, fontSize: 15 }}
-          >
-            ¡Entendido!
-          </button>
         </div>
       </div>
     </div>

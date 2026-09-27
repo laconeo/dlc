@@ -72,7 +72,7 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
       </div>
 
       {/* ── Scrollable Body ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-4 pb-8 space-y-4">
 
         {/* ── INTRO BANNER ── */}
         <div
@@ -275,16 +275,6 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
           </span>
         </div>
 
-      </div>
-
-      {/* ── Bottom Action Button ── */}
-      <div className="p-4 border-t-2 border-[#e5e5e5] bg-white shrink-0">
-        <button
-          onClick={onClose}
-          className="btn-duo-green w-full font-display font-bold text-base py-3.5 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-        >
-          <span>← Volver al Camino de Lecturas</span>
-        </button>
       </div>
     </div>
   );

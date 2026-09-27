@@ -411,37 +411,34 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
       className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn relative"
       style={{ overscrollBehavior: 'none' }}
     >
-      {/* ══ TOP BRANDING: LOGO ══ */}
+      {/* ══ TOP BRANDING: LOGO & TITULO ══ */}
       <div
-        className="flex flex-col items-center pt-5 pb-2 px-5 shrink-0 bg-white"
+        className="flex flex-col items-center pt-5 pb-1 px-5 shrink-0 bg-white"
       >
         <img
           src={`${import.meta.env.BASE_URL}logo.png`}
           alt="3 Minutos con Jesucristo"
-          className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl shadow-md border border-slate-100 mb-3 select-none"
+          className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl shadow-md border border-slate-100 mb-2 select-none"
         />
 
-        {/* Mode tabs or Back Button */}
-        {mode === 'login' || mode === 'register' ? (
-          <div
-            className="w-full max-w-xs flex bg-[#f0f0f0] p-1 rounded-2xl border border-[#e5e5e5]"
-          >
-            {(['login', 'register'] as AuthMode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={`flex-1 py-2 font-display font-bold text-sm rounded-xl transition-all cursor-pointer border-none ${
-                  mode === m
-                    ? 'bg-[#58cc02] text-white shadow-sm'
-                    : 'bg-transparent text-[#777777] hover:text-[#3c3c3c]'
-                }`}
-              >
-                {m === 'login' ? 'Ingresar' : 'Registrarse'}
-              </button>
-            ))}
+        {mode === 'login' && (
+          <h1 className="font-display font-bold text-xl sm:text-2xl text-[#3c3c3c] text-center tracking-tight">
+            «Detente, Lee, Conecta»
+          </h1>
+        )}
+
+        {mode === 'register' && (
+          <div className="text-center">
+            <h1 className="font-display font-bold text-xl sm:text-2xl text-[#3c3c3c] tracking-tight">
+              «Detente, Lee, Conecta»
+            </h1>
+            <p className="text-xs text-[#777777] font-medium mt-0.5">
+              Crea tu cuenta de Seminario
+            </p>
           </div>
-        ) : (
+        )}
+
+        {(mode === 'forgot_password' || mode === 'reset_password') && (
           <div className="flex flex-col items-center gap-1 w-full max-w-xs">
             <h2 className="font-display font-bold text-base text-[#3c3c3c]">
               {mode === 'forgot_password' ? 'Recuperar Contraseña' : 'Nueva Contraseña'}

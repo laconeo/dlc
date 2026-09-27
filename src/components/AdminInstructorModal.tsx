@@ -81,7 +81,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWard, setSelectedWard] = useState<string>('all');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'streak7' | 'completed' | 'recent'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -153,17 +152,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   };
 
-  const uniqueWards = React.useMemo(() => {
-    const map = new Map<string, number>();
-    students.forEach((s) => {
-      const w = (s.ward || '').trim();
-      if (w) {
-        map.set(w, (map.get(w) || 0) + 1);
-      }
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [students]);
-
   const exportReport = () => {
     const lines = [
       'REPORTE – «DETENTE, LEE, CONECTA»',
@@ -185,13 +173,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   };
 
   const filteredStudents = students.filter((s) => {
-    // 1. Filtro por Barrio/Rama seleccionado en el dropdown
-    if (selectedWard !== 'all') {
-      const sWard = (s.ward || '').trim().toLowerCase();
-      if (sWard !== selectedWard.toLowerCase()) return false;
-    }
-
-    // 2. Filtro de búsqueda por texto
+    // 1. Filtro de búsqueda por texto (Barrio/Rama, nombre, apellido, correo, clase, rol)
     const q = searchQuery.toLowerCase().trim();
     if (q) {
       const match =
@@ -206,7 +188,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
       if (!match) return false;
     }
 
-    // 3. Filtro por estado / categoría
+    // 2. Filtro por estado / categoría
     if (selectedFilter === 'instructors') return isUserInstructor(s);
     if (selectedFilter === 'streak7') return s.currentStreak >= 7;
     if (selectedFilter === 'completed') return s.completedDays.length >= 30;
@@ -332,102 +314,54 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             background: '#ffffff',
           }}
         >
-          {/* Search + Ward Filter row */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
-              <input
-                id="instructor-search-students"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por barrio/rama, nombre, clase..."
+          {/* Search bar */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
+            <input
+              id="instructor-search-students"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por barrio/rama, nombre, clase, correo..."
+              style={{
+                width: '100%',
+                padding: '10px 14px 10px 42px',
+                fontSize: 14,
+                fontFamily: 'inherit',
+                background: '#f7f7f7',
+                border: '2px solid #e5e5e5',
+                borderRadius: 12,
+                outline: 'none',
+                color: '#3c3c3c',
+                boxSizing: 'border-box',
+              }}
+              onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
+              onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
                 style={{
-                  width: '100%',
-                  padding: '10px 14px 10px 42px',
-                  fontSize: 14,
-                  fontFamily: 'inherit',
-                  background: '#f7f7f7',
-                  border: '2px solid #e5e5e5',
-                  borderRadius: 12,
-                  outline: 'none',
-                  color: '#3c3c3c',
-                  boxSizing: 'border-box',
+                  position: 'absolute',
+                  right: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#e5e5e5',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 20,
+                  height: 20,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#777777',
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
-                onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{
-                    position: 'absolute',
-                    right: 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: '#e5e5e5',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: 20,
-                    height: 20,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#777777',
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Selector rápido de Barrio / Rama */}
-            {uniqueWards.length > 0 && (
-              <div style={{ position: 'relative', minWidth: 170 }}>
-                <MapPin
-                  style={{
-                    position: 'absolute',
-                    left: 11,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: 15,
-                    height: 15,
-                    color: selectedWard !== 'all' ? '#0284c7' : '#afafaf',
-                    pointerEvents: 'none',
-                  }}
-                />
-                <select
-                  id="instructor-ward-filter"
-                  value={selectedWard}
-                  onChange={(e) => setSelectedWard(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    minHeight: 40,
-                    padding: '8px 12px 8px 32px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: 'inherit',
-                    background: selectedWard !== 'all' ? '#f0f9ff' : '#f7f7f7',
-                    border: `2px solid ${selectedWard !== 'all' ? '#0284c7' : '#e5e5e5'}`,
-                    borderRadius: 12,
-                    outline: 'none',
-                    color: selectedWard !== 'all' ? '#0369a1' : '#3c3c3c',
-                    cursor: 'pointer',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="all">📍 Todos los Barrios/Ramas</option>
-                  {uniqueWards.map(([ward, count]) => (
-                    <option key={ward} value={ward}>
-                      {ward} ({count})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              >
+                ✕
+              </button>
             )}
           </div>
 

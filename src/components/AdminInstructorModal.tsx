@@ -18,10 +18,11 @@ import {
   UserCheck,
   ArrowLeft,
   MapPin,
+  TrendingUp,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
 import { fetchInstructorData, toggleStudentDay, updateStudentRole } from '../utils/api';
-import { SPECIAL_BADGES } from '../data/readings';
+import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
 import { getUserInitials } from './TopHeader';
 
 interface AdminInstructorModalProps {
@@ -286,23 +287,133 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
         </div>
       </div>
 
-        {/* ── Stats Row ── */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 8,
-            padding: '12px 14px',
-            background: '#f7f7f7',
-            borderBottom: '2px solid #e5e5e5',
-            flexShrink: 0,
-          }}
-        >
-          <StatCard icon={Users}    iconColor="#1cb0f6" iconBg="#e8f7ff" label="Alumnos"       value={stats?.totalStudents || students.length} />
-          <StatCard icon={Flame}    iconColor="#ff9600" iconBg="#fff3e0" label="Racha Prom."   value={`${stats?.averageStreak || 0}d`} />
-          <StatCard icon={Award}    iconColor="#ffc800" iconBg="#fffbe0" label="Carta Dorada"  value={stats?.completed30DaysCount || 0} />
-          <StatCard icon={BookOpen} iconColor="#58cc02" iconBg="#e8f9d9" label="Total Días"    value={stats?.totalDaysRead || 0} />
-        </div>
+          {/* ── Stats Row ── */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 8,
+              padding: '12px 14px',
+              background: '#f7f7f7',
+              borderBottom: '2px solid #e5e5e5',
+              flexShrink: 0,
+            }}
+          >
+            {(() => {
+              // Calcular el día actual del desafío según el calendario
+              const now = new Date();
+              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
+              const challengeDay = todayReading?.day ?? '—';
+              return (
+                <>
+                  <StatCard icon={Users}      iconColor="#1cb0f6" iconBg="#e8f7ff" label="Alumnos"      value={stats?.totalStudents || students.length} />
+                  <StatCard icon={Flame}      iconColor="#ff9600" iconBg="#fff3e0" label="Racha Prom."  value={`${stats?.averageStreak || 0}d`} />
+                  <StatCard icon={Award}      iconColor="#ffc800" iconBg="#fffbe0" label="Carta Dorada" value={stats?.completed30DaysCount || 0} />
+                  <StatCard icon={TrendingUp} iconColor="#58cc02" iconBg="#e8f9d9" label="Día Actual"   value={`${challengeDay}/30`} />
+                </>
+              );
+            })()}
+          </div>
+
+          {/* ── Participation Chart ── */}
+          {!loading && students.length > 0 && (() => {
+            const total = students.length;
+            const activos    = students.filter(s => s.completedDays.length > 0).length;
+            const noIniciado = total - activos;
+            const pctActivos    = Math.round((activos / total) * 100);
+            const pctNoIniciado = 100 - pctActivos;
+
+            // Donut SVG
+            const r = 30;
+            const circ = 2 * Math.PI * r;
+            const activosArc = (activos / total) * circ;
+
+            return (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  background: '#ffffff',
+                  borderBottom: '2px solid #e5e5e5',
+                  flexShrink: 0,
+                }}
+              >
+                <p className="font-display font-bold" style={{ fontSize: 13, color: '#3c3c3c', marginBottom: 10 }}>
+                  📊 Participación del grupo
+                </p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  {/* Donut chart */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <svg width="80" height="80" viewBox="0 0 80 80">
+                      {/* fondo */}
+                      <circle cx="40" cy="40" r={r} fill="none" stroke="#e5e5e5" strokeWidth="12" />
+                      {/* activos (verde) */}
+                      <circle
+                        cx="40" cy="40" r={r}
+                        fill="none"
+                        stroke="#58cc02"
+                        strokeWidth="12"
+                        strokeDasharray={`${activosArc} ${circ - activosArc}`}
+                        strokeDashoffset={circ / 4}
+                        strokeLinecap="round"
+                        style={{ transition: 'stroke-dasharray 0.6s ease' }}
+                      />
+                    </svg>
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: '#3c3c3c', lineHeight: 1 }}>{pctActivos}%</span>
+                      <span style={{ fontSize: 9, color: '#777', fontWeight: 700, textTransform: 'uppercase' }}>activos</span>
+                    </div>
+                  </div>
+
+                  {/* Barras de detalle */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Activos */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#58cc02' }}>
+                          ✅ Avanzando ({activos})
+                        </span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#46a302' }}>{pctActivos}%</span>
+                      </div>
+                      <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${pctActivos}%`,
+                          background: '#58cc02',
+                          borderRadius: 100,
+                          transition: 'width 0.6s ease',
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* No iniciados */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#ff9600' }}>
+                          ⏳ Sin reportar ({noIniciado})
+                        </span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e08600' }}>{pctNoIniciado}%</span>
+                      </div>
+                      <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${pctNoIniciado}%`,
+                          background: '#ff9600',
+                          borderRadius: 100,
+                          transition: 'width 0.6s ease',
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
         {/* ── Toast ── */}
         {actionMessage && (

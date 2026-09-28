@@ -110,3 +110,9 @@ where s.email not like '%@seminario.org'
 group by s.id, s.email, s.first_name, s.last_name,
          s.current_streak, s.highest_streak, s.last_completed_date
 order by s.created_at;
+
+-- 4. CRITICAL: Grant execute permission so the frontend RPC call works
+--    Without this, supabase.rpc('recalculate_student_stats') fails silently
+GRANT EXECUTE ON FUNCTION public.recalculate_student_stats(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.recalculate_student_stats(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION public.recalculate_student_stats(uuid) TO service_role;

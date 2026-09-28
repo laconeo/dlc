@@ -500,7 +500,28 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
     }
 
     // 3. Recalcular estadísticas y badges via función SQL
-    await supabase.rpc('recalculate_student_stats', { p_student_id: studentId });
+    const { error: rpcError } = await supabase.rpc('recalculate_student_stats', { p_student_id: studentId });
+
+    // Si el RPC falla, calcular racha localmente y actualizar directamente en students
+    if (rpcError) {
+      console.warn('RPC recalculate_student_stats failed, computing locally:', rpcError.message);
+      // Leer días completados actuales
+      const { data: daysRows } = await supabase
+        .from('student_completed_days')
+        .select('day')
+        .eq('student_id', studentId)
+        .order('day');
+      const completedDays = (daysRows || []).map((r: any) => Number(r.day)).sort((a, b) => a - b);
+      let streak = 0;
+      for (let d = 1; d <= 31; d++) {
+        if (completedDays.includes(d)) streak++;
+        else break;
+      }
+      await supabase
+        .from('students')
+        .update({ current_streak: streak, highest_streak: streak, updated_at: new Date().toISOString() })
+        .eq('id', studentId);
+    }
 
     // 4. Leer el perfil actualizado
     const { data, error } = await supabase

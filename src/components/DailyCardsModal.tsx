@@ -12,6 +12,7 @@ import {
   Shield,
   BookOpen,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 import { Student, isUserInstructor } from '../types';
 import { READINGS_DATA } from '../data/readings';
@@ -78,11 +79,16 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
   const [uploadingDay, setUploadingDay] = useState<number | null>(null);
   const [activePreviewDay, setActivePreviewDay] = useState<number | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [previewAsStudent, setPreviewAsStudent] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetDayRef = useRef<number>(1);
 
   const isInstructor = isUserInstructor(student);
+  const canManage = isInstructor && !previewAsStudent;
+
+  // Días completados por el alumno
+  const completedDays = student?.completedDays || [];
 
   // Sincronizar remotamente
   useEffect(() => {
@@ -94,6 +100,9 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
   // Mostramos los 30 días del desafío
   const daysList = READINGS_DATA.slice(0, 30);
   const availableCount = daysList.filter((d) => Boolean(cardsMap[d.day])).length;
+  const userUnlockedCardsCount = daysList.filter(
+    (d) => completedDays.includes(d.day) && Boolean(cardsMap[d.day])
+  ).length;
 
   const handleTriggerUpload = (day: number) => {
     targetDayRef.current = day;
@@ -196,13 +205,17 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
           </div>
         </div>
 
-        {/* Contador de cartas subidas */}
+        {/* Contador dinámico */}
         <div
           className="font-display font-bold rounded-full px-3 py-1 flex items-center gap-1.5 shadow-sm"
           style={{ background: '#ffffff', color: '#7e22ce', fontSize: 13 }}
         >
           <Sparkles style={{ width: 14, height: 14, color: '#a855f7' }} />
-          <span>{availableCount}/30</span>
+          <span>
+            {canManage
+              ? `${availableCount}/30 Subidas`
+              : `${userUnlockedCardsCount}/30 Desbloqueadas`}
+          </span>
         </div>
       </div>
 
@@ -219,12 +232,23 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
           <div className="flex items-center gap-2">
             <Shield style={{ width: 16, height: 16, color: '#7e22ce', flexShrink: 0 }} />
             <span className="text-xs font-bold text-purple-900 leading-tight">
-              Modo Instructor: Puedes subir las cartas de cada día para completar los placeholders.
+              {previewAsStudent
+                ? 'Vista de Alumno: Solo se ven las cartas de los días leídos.'
+                : 'Modo Instructor: Puedes subir y editar cartas para cada día.'}
             </span>
           </div>
-          <span className="text-[10px] font-bold uppercase bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full shrink-0">
-            Editor
-          </span>
+          <button
+            onClick={() => setPreviewAsStudent((prev) => !prev)}
+            className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shrink-0 transition-colors border shadow-xs"
+            style={{
+              background: previewAsStudent ? '#9333ea' : '#ffffff',
+              color: previewAsStudent ? '#ffffff' : '#7e22ce',
+              borderColor: '#c084fc',
+              cursor: 'pointer',
+            }}
+          >
+            {previewAsStudent ? 'Ver como Instructor' : 'Ver como Alumno'}
+          </button>
         </div>
       )}
 
@@ -235,7 +259,105 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
             const cardImage = cardsMap[reading.day];
             const hasImage = Boolean(cardImage);
             const isCurrentUploading = uploadingDay === reading.day;
+            const hasReadDay = completedDays.includes(reading.day);
 
+            // Una carta es visible si el usuario leyó ese día, o si el instructor está en modo gestión
+            const isVisible = hasReadDay || canManage;
+
+            /* ── CARTA BLOQUEADA (No ha leído este día) ── */
+            if (!isVisible) {
+              return (
+                <div
+                  key={reading.day}
+                  id={`daily-card-slot-${reading.day}`}
+                  className="relative rounded-2xl overflow-hidden flex flex-col transition-all duration-200 shadow-sm"
+                  style={{
+                    background: '#090d16',
+                    border: '2px solid #1e293b',
+                  }}
+                >
+                  {/* Área bloqueada */}
+                  <div
+                    className="relative w-full aspect-[3/4] overflow-hidden flex items-center justify-center cursor-pointer select-none group"
+                    onClick={() => {
+                      alert(
+                        `🔒 Carta Bloqueada\n\nDebes completar la lectura del Día ${reading.day} (${reading.character}) en tu Camino para desbloquear y revelar esta carta coleccionable.`
+                      );
+                    }}
+                    style={{
+                      background: 'radial-gradient(circle at center, #1e293b 0%, #05070d 100%)',
+                    }}
+                  >
+                    {/* Badge Día Bloqueado */}
+                    <div
+                      className="absolute top-2 left-2 z-10 font-display font-extrabold rounded-lg px-2 py-0.5 shadow-sm flex items-center gap-1 text-[11px]"
+                      style={{
+                        background: '#1e293b',
+                        color: '#94a3b8',
+                        border: '1px solid #334155',
+                      }}
+                    >
+                      <Lock style={{ width: 10, height: 10, color: '#f59e0b' }} />
+                      <span>Día {reading.day}</span>
+                    </div>
+
+                    <div className="p-3 text-center flex flex-col items-center justify-center h-full gap-2">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-slate-700/80 transition-transform group-hover:scale-105"
+                        style={{ background: '#1e293b', color: '#fbbf24' }}
+                      >
+                        <Lock style={{ width: 22, height: 22 }} />
+                      </div>
+                      <div className="text-center px-1">
+                        <p className="font-display font-bold text-xs text-slate-200 leading-tight">
+                          Carta Bloqueada
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Lee el día para desbloquear
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-950/70 border border-amber-800/60 px-2 py-0.5 rounded-full mt-1 flex items-center gap-1">
+                        <Lock style={{ width: 10, height: 10 }} /> No leído
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pie de página bloqueado */}
+                  <div
+                    className="p-2.5 flex flex-col gap-1 border-t shrink-0"
+                    style={{
+                      background: '#05070d',
+                      borderColor: '#1e293b',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-display font-bold text-xs text-slate-300 truncate">
+                        Día {reading.day} · {reading.character}
+                      </span>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0"
+                        style={{ background: '#1e293b', color: '#94a3b8' }}
+                      >
+                        {reading.dateStr}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 font-medium truncate flex items-center gap-1">
+                      <BookOpen style={{ width: 11, height: 11, color: '#64748b', flexShrink: 0 }} />
+                      <span className="truncate">{reading.scriptureRef}</span>
+                    </p>
+
+                    <div className="pt-1 mt-0.5 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-amber-400/90 flex items-center gap-1">
+                        <Lock style={{ width: 10, height: 10 }} /> Lectura pendiente
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            /* ── CARTA DESBLOQUEADA / MODO GESTIÓN ── */
             return (
               <div
                 key={reading.day}
@@ -252,7 +374,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
                   onClick={() => {
                     if (hasImage) {
                       setActivePreviewDay(reading.day);
-                    } else if (isInstructor) {
+                    } else if (canManage) {
                       handleTriggerUpload(reading.day);
                     }
                   }}
@@ -262,16 +384,19 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
                       : 'linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)',
                   }}
                 >
-                  {/* Badge de Día (Siempre visible en la esquina) */}
+                  {/* Badge de Día (Con check si leyó) */}
                   <div
-                    className="absolute top-2 left-2 z-10 font-display font-extrabold rounded-lg px-2 py-0.5 shadow-sm"
+                    className="absolute top-2 left-2 z-10 font-display font-extrabold rounded-lg px-2 py-0.5 shadow-sm flex items-center gap-1"
                     style={{
                       fontSize: 11,
-                      background: hasImage ? '#a855f7' : '#94a3b8',
+                      background: hasImage ? '#7e22ce' : '#94a3b8',
                       color: '#ffffff',
                     }}
                   >
-                    Día {reading.day}
+                    {hasReadDay && (
+                      <CheckCircle style={{ width: 11, height: 11, color: '#86efac' }} />
+                    )}
+                    <span>Día {reading.day}</span>
                   </div>
 
                   {hasImage ? (
@@ -307,7 +432,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
                         </p>
                       </div>
                       <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full mt-1">
-                        {isInstructor ? 'Clic para subir' : 'Próximamente'}
+                        {canManage ? 'Clic para subir' : 'Carta en preparación'}
                       </span>
                     </div>
                   )}
@@ -346,8 +471,17 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
                     <span className="truncate">{reading.scriptureRef}</span>
                   </p>
 
+                  {/* Estado de lectura para el usuario */}
+                  {hasReadDay && (
+                    <div className="pt-1 mt-0.5 border-t border-purple-100 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle style={{ width: 11, height: 11 }} /> ¡Leído! Desbloqueada
+                      </span>
+                    </div>
+                  )}
+
                   {/* Acciones de Instructor (Subir / Cambiar / Borrar) */}
-                  {isInstructor && (
+                  {canManage && (
                     <div className="pt-1.5 mt-1 border-t border-slate-200 flex items-center gap-1.5">
                       <button
                         onClick={(e) => {
@@ -390,7 +524,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
       </div>
 
       {/* ── Modal Lightbox para ver la Carta en Grande ── */}
-      {activePreviewDay && previewReading && cardsMap[activePreviewDay] && (
+      {activePreviewDay && previewReading && cardsMap[activePreviewDay] && (completedDays.includes(activePreviewDay) || canManage) && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 animate-fadeIn"
           onClick={() => setActivePreviewDay(null)}

@@ -322,234 +322,322 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
         </div>
       </div>
 
-          {/* ── Stats Row ── */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 8,
-              padding: '12px 14px',
-              background: '#f7f7f7',
-              borderBottom: '2px solid #e5e5e5',
-              flexShrink: 0,
-            }}
-          >
-            {(() => {
-              // Calcular el día actual del desafío según el calendario
-              const now = new Date();
-              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-              const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
-              const challengeDay = todayReading?.day ?? '—';
-              return (
-                <>
-                  <StatCard icon={Users}      iconColor="#1cb0f6" iconBg="#e8f7ff" label="Alumnos"      value={stats?.totalStudents || students.length} />
-                  <StatCard icon={Flame}      iconColor="#ff9600" iconBg="#fff3e0" label="Racha Prom."  value={`${stats?.averageStreak || 0}d`} />
-                  <StatCard icon={Award}      iconColor="#ffc800" iconBg="#fffbe0" label="Carta Dorada" value={stats?.completed30DaysCount || 0} />
-                  <StatCard icon={TrendingUp} iconColor="#58cc02" iconBg="#e8f9d9" label="Día Actual"   value={`${challengeDay}/30`} />
-                </>
-              );
-            })()}
-          </div>
+          {(() => {
+            // Calcular el día actual del desafío según el calendario
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
+            const challengeDay = todayReading?.day ?? '—';
 
-          {/* ── Participation Chart ── */}
-          {!loading && students.length > 0 && (() => {
-            const total = students.length;
-            const activos    = students.filter(s => s.completedDays.length > 0).length;
-            const noIniciado = total - activos;
-            const pctActivos    = Math.round((activos / total) * 100);
-            const pctNoIniciado = 100 - pctActivos;
+            // Estadísticas dinámicas según búsqueda / filtro
+            const isFiltered = searchQuery.trim().length > 0 || selectedFilter !== 'all';
+            const totalAll = students.length;
+            const totalFiltered = filteredStudents.length;
+
+            const activeFiltered = filteredStudents.filter((s) => s.completedDays.length > 0).length;
+            const inactiveFiltered = totalFiltered - activeFiltered;
+            const pctActivos = totalFiltered > 0 ? Math.round((activeFiltered / totalFiltered) * 100) : 0;
+            const pctNoIniciado = totalFiltered > 0 ? 100 - pctActivos : 0;
+
+            const avgStreak = totalFiltered > 0
+              ? Math.round((filteredStudents.reduce((acc, s) => acc + s.currentStreak, 0) / totalFiltered) * 10) / 10
+              : 0;
+
+            const goldCardsCount = filteredStudents.filter((s) => s.completedDays.length >= 30).length;
 
             // Donut SVG
             const r = 30;
             const circ = 2 * Math.PI * r;
-            const activosArc = (activos / total) * circ;
+            const activosArc = totalFiltered > 0 ? (activeFiltered / totalFiltered) * circ : 0;
 
             return (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  background: '#ffffff',
-                  borderBottom: '2px solid #e5e5e5',
-                  flexShrink: 0,
-                }}
-              >
-                <p className="font-display font-bold" style={{ fontSize: 13, color: '#3c3c3c', marginBottom: 10 }}>
-                  📊 Participación del grupo
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  {/* Donut chart */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <svg width="80" height="80" viewBox="0 0 80 80">
-                      {/* fondo */}
-                      <circle cx="40" cy="40" r={r} fill="none" stroke="#e5e5e5" strokeWidth="12" />
-                      {/* activos (verde) */}
-                      <circle
-                        cx="40" cy="40" r={r}
-                        fill="none"
-                        stroke="#58cc02"
-                        strokeWidth="12"
-                        strokeDasharray={`${activosArc} ${circ - activosArc}`}
-                        strokeDashoffset={circ / 4}
-                        strokeLinecap="round"
-                        style={{ transition: 'stroke-dasharray 0.6s ease' }}
-                      />
-                    </svg>
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: '#3c3c3c', lineHeight: 1 }}>{pctActivos}%</span>
-                      <span style={{ fontSize: 9, color: '#777', fontWeight: 700, textTransform: 'uppercase' }}>activos</span>
-                    </div>
-                  </div>
-
-                  {/* Barras de detalle */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {/* Activos */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#58cc02' }}>
-                          ✅ Avanzando ({activos})
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#46a302' }}>{pctActivos}%</span>
-                      </div>
-                      <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${pctActivos}%`,
-                          background: '#58cc02',
-                          borderRadius: 100,
-                          transition: 'width 0.6s ease',
-                        }} />
-                      </div>
-                    </div>
-
-                    {/* No iniciados */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#ff9600' }}>
-                          ⏳ Sin reportar ({noIniciado})
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e08600' }}>{pctNoIniciado}%</span>
-                      </div>
-                      <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${pctNoIniciado}%`,
-                          background: '#ff9600',
-                          borderRadius: 100,
-                          transition: 'width 0.6s ease',
-                        }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-        {/* ── Toast ── */}
-        {actionMessage && (
-          <div
-            className="animate-fadeIn"
-            style={{ background: '#58cc02', color: '#ffffff', fontWeight: 700, fontSize: 14, padding: '8px 20px', textAlign: 'center', flexShrink: 0 }}
-          >
-            {actionMessage}
-          </div>
-        )}
-
-        {/* ── Search + Filter ── */}
-        <div
-          style={{
-            padding: '12px 14px',
-            borderBottom: '2px solid #e5e5e5',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            flexShrink: 0,
-            background: '#ffffff',
-          }}
-        >
-          {/* Search bar */}
-          <div style={{ position: 'relative', width: '100%' }}>
-            <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
-            <input
-              id="instructor-search-students"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por barrio/rama, nombre, clase, correo..."
-              style={{
-                width: '100%',
-                padding: '10px 14px 10px 42px',
-                fontSize: 14,
-                fontFamily: 'inherit',
-                background: '#f7f7f7',
-                border: '2px solid #e5e5e5',
-                borderRadius: 12,
-                outline: 'none',
-                color: '#3c3c3c',
-                boxSizing: 'border-box',
-              }}
-              onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
-              onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: '#e5e5e5',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 20,
-                  height: 20,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#777777',
-                }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Filter pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            {FILTERS.map((f) => {
-              const active = selectedFilter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setSelectedFilter(f.id)}
-                  className="font-display font-bold whitespace-nowrap transition-all active:scale-95"
+              <>
+                {/* ── Stats Row ── */}
+                <div
                   style={{
-                    height: 34,
-                    paddingLeft: 14,
-                    paddingRight: 14,
-                    borderRadius: 100,
-                    fontSize: 13,
-                    border: active ? 'none' : '2px solid #e5e5e5',
-                    background: active ? f.bg : '#ffffff',
-                    color: active ? '#ffffff' : '#777777',
-                    cursor: 'pointer',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 8,
+                    padding: '12px 14px',
+                    background: '#f7f7f7',
+                    borderBottom: '2px solid #e5e5e5',
+                    flexShrink: 0,
                   }}
                 >
-                  {f.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  <StatCard
+                    icon={Users}
+                    iconColor="#1cb0f6"
+                    iconBg="#e8f7ff"
+                    label={isFiltered ? 'Alumnos (Filtro)' : 'Alumnos'}
+                    value={isFiltered ? `${totalFiltered} de ${totalAll}` : (stats?.totalStudents || totalAll)}
+                  />
+                  <StatCard
+                    icon={Flame}
+                    iconColor="#ff9600"
+                    iconBg="#fff3e0"
+                    label="Racha Prom."
+                    value={`${isFiltered ? avgStreak : (stats?.averageStreak ?? avgStreak)}d`}
+                  />
+                  <StatCard
+                    icon={Award}
+                    iconColor="#ffc800"
+                    iconBg="#fffbe0"
+                    label="Carta Dorada"
+                    value={isFiltered ? goldCardsCount : (stats?.completed30DaysCount ?? goldCardsCount)}
+                  />
+                  <StatCard
+                    icon={TrendingUp}
+                    iconColor="#58cc02"
+                    iconBg="#e8f9d9"
+                    label="Día Actual"
+                    value={`${challengeDay}/30`}
+                  />
+                </div>
+
+                {/* ── Search + Filter ── */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderBottom: '2px solid #e5e5e5',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    flexShrink: 0,
+                    background: '#ffffff',
+                  }}
+                >
+                  {/* Search bar */}
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
+                    <input
+                      id="instructor-search-students"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar por barrio/rama, nombre, clase, correo..."
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px 10px 42px',
+                        fontSize: 14,
+                        fontFamily: 'inherit',
+                        background: '#f7f7f7',
+                        border: '2px solid #e5e5e5',
+                        borderRadius: 12,
+                        outline: 'none',
+                        color: '#3c3c3c',
+                        boxSizing: 'border-box',
+                      }}
+                      onFocus={(e) => { e.target.style.borderColor = '#1cb0f6'; e.target.style.background = '#fff'; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#e5e5e5'; e.target.style.background = '#f7f7f7'; }}
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: 12,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: '#e5e5e5',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: 20,
+                          height: 20,
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#777777',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                    {FILTERS.map((f) => {
+                      const active = selectedFilter === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setSelectedFilter(f.id)}
+                          className="font-display font-bold whitespace-nowrap transition-all active:scale-95"
+                          style={{
+                            height: 34,
+                            paddingLeft: 14,
+                            paddingRight: 14,
+                            borderRadius: 100,
+                            fontSize: 13,
+                            border: active ? 'none' : '2px solid #e5e5e5',
+                            background: active ? f.bg : '#ffffff',
+                            color: active ? '#ffffff' : '#777777',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Toast ── */}
+                {actionMessage && (
+                  <div
+                    className="animate-fadeIn"
+                    style={{ background: '#58cc02', color: '#ffffff', fontWeight: 700, fontSize: 14, padding: '8px 20px', textAlign: 'center', flexShrink: 0 }}
+                  >
+                    {actionMessage}
+                  </div>
+                )}
+
+                {/* ── Participation Chart (Dinámico según búsqueda / barrio) ── */}
+                {!loading && (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      background: '#ffffff',
+                      borderBottom: '2px solid #e5e5e5',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 15 }}>📊</span>
+                        <p className="font-display font-bold" style={{ fontSize: 13, color: '#3c3c3c' }}>
+                          {isFiltered ? (
+                            <>
+                              Participación: <span style={{ color: '#1cb0f6' }}>{searchQuery.trim() ? `«${searchQuery.trim()}»` : 'filtro'}</span>
+                              <span style={{ color: '#777', fontWeight: 500, fontSize: 12 }}> ({totalFiltered} {totalFiltered === 1 ? 'alumno' : 'alumnos'})</span>
+                            </>
+                          ) : (
+                            <>Participación del grupo <span style={{ color: '#777', fontWeight: 500, fontSize: 12 }}>({totalAll} alumnos)</span></>
+                          )}
+                        </p>
+                      </div>
+
+                      {isFiltered && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: '#0284c7',
+                              background: '#e0f2fe',
+                              border: '1px solid #bae6fd',
+                              borderRadius: 6,
+                              padding: '2px 8px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Filtrado dinámico
+                          </span>
+                          <button
+                            onClick={() => {
+                              setSearchQuery('');
+                              setSelectedFilter('all');
+                            }}
+                            style={{
+                              fontSize: 11,
+                              color: '#777',
+                              background: '#f0f0f0',
+                              border: 'none',
+                              borderRadius: 6,
+                              padding: '2px 8px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                            }}
+                            title="Restablecer búsqueda"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {totalFiltered === 0 ? (
+                      <div style={{ padding: '12px', background: '#f9f9f9', borderRadius: 12, border: '2px dashed #e5e5e5', textAlign: 'center', color: '#777', fontSize: 13 }}>
+                        No se encontraron alumnos para <strong>«{searchQuery}»</strong>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        {/* Donut chart */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <svg width="80" height="80" viewBox="0 0 80 80">
+                            {/* fondo */}
+                            <circle cx="40" cy="40" r={r} fill="none" stroke="#e5e5e5" strokeWidth="12" />
+                            {/* activos (verde) */}
+                            <circle
+                              cx="40" cy="40" r={r}
+                              fill="none"
+                              stroke="#58cc02"
+                              strokeWidth="12"
+                              strokeDasharray={`${activosArc} ${circ - activosArc}`}
+                              strokeDashoffset={circ / 4}
+                              strokeLinecap="round"
+                              style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                            />
+                          </svg>
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: '#3c3c3c', lineHeight: 1 }}>{pctActivos}%</span>
+                            <span style={{ fontSize: 9, color: '#777', fontWeight: 700, textTransform: 'uppercase' }}>activos</span>
+                          </div>
+                        </div>
+
+                        {/* Barras de detalle */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {/* Activos */}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#58cc02' }}>
+                                ✅ Avanzando ({activeFiltered})
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#46a302' }}>{pctActivos}%</span>
+                            </div>
+                            <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${pctActivos}%`,
+                                background: '#58cc02',
+                                borderRadius: 100,
+                                transition: 'width 0.5s ease',
+                              }} />
+                            </div>
+                          </div>
+
+                          {/* No iniciados */}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#ff9600' }}>
+                                ⏳ Sin reportar ({inactiveFiltered})
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#e08600' }}>{pctNoIniciado}%</span>
+                            </div>
+                            <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${pctNoIniciado}%`,
+                                background: '#ff9600',
+                                borderRadius: 100,
+                                transition: 'width 0.5s ease',
+                              }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
         {/* ── Student Roster ── */}
         <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '10px 12px', background: '#f7f7f7' }}>

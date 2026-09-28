@@ -652,7 +652,7 @@ export async function updateStudentProfile(
 ): Promise<Student> {
   const { data: authData } = await supabase.auth.getUser();
   const currentUserId = authData?.user?.id;
-  const targetId = currentUserId || studentId;
+  const targetId = studentId || currentUserId;
 
   const payload: any = {
     updated_at: new Date().toISOString(),
@@ -662,8 +662,8 @@ export async function updateStudentProfile(
   if (params.ward !== undefined) payload.ward = params.ward.trim();
   if (params.seminaryClass !== undefined) payload.seminary_class = params.seminaryClass.trim();
 
-  // 1. Siempre sincronizar metadatos en Supabase Auth
-  if (authData?.user) {
+  // 1. Sincronizar metadatos en Supabase Auth solo si es la propia cuenta
+  if (authData?.user && targetId === currentUserId) {
     try {
       await supabase.auth.updateUser({
         data: {
@@ -727,7 +727,9 @@ export async function updateStudentProfile(
 
     if (fullRow) {
       const updatedStudent = rowToStudent(fullRow);
-      saveLocalStudent(updatedStudent);
+      if (targetId === currentUserId) {
+        saveLocalStudent(updatedStudent);
+      }
       return updatedStudent;
     }
   } catch (err: any) {

@@ -20,11 +20,21 @@ import {
   MapPin,
   TrendingUp,
   Trash2,
+  Edit2,
+  Save,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
-import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent } from '../utils/api';
+import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent, updateStudentProfile } from '../utils/api';
 import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
 import { getUserInitials } from './TopHeader';
+
+const SEMINARY_CLASSES = [
+  'Seminario - Antiguo Testamento',
+  'Seminario - Nuevo Testamento',
+  'Seminario - Libro de Mormón',
+  'Seminario - Doctrina y Convenios',
+  'Otra clase de Seminario',
+];
 
 interface AdminInstructorModalProps {
   isOpen?: boolean;
@@ -87,6 +97,56 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editWard, setEditWard] = useState('');
+  const [editClass, setEditClass] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const handleOpenEditProfile = (s: Student) => {
+    setEditingStudent(s);
+    setEditFirstName(s.firstName || s.name.split(' ')[0] || '');
+    setEditLastName(s.lastName || s.name.split(' ').slice(1).join(' ') || '');
+    setEditWard(s.ward || '');
+    setEditClass(s.seminaryClass || 'Seminario - Antiguo Testamento');
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    if (!editFirstName.trim()) {
+      alert('El nombre es obligatorio.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const updated = await updateStudentProfile(editingStudent.id, {
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
+        ward: editWard.trim(),
+        seminaryClass: editClass.trim(),
+      });
+
+      setStudents((prev) =>
+        prev.map((s) => (s.id === editingStudent.id ? updated : s))
+      );
+
+      if (currentStudent && currentStudent.id === editingStudent.id && onStudentUpdated) {
+        onStudentUpdated();
+      }
+
+      setActionMessage(`¡Perfil de ${updated.name} actualizado con éxito!`);
+      setTimeout(() => setActionMessage(null), 3000);
+      setEditingStudent(null);
+    } catch (err: any) {
+      console.error('Error al actualizar perfil:', err);
+      alert(`Error al guardar: ${err.message || err}`);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -799,32 +859,10 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Quick Delete button (not for superadmin) */}
-                        {!isTargetSuper && (
-                          <button
-                            id={`quick-delete-student-${student.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteStudent(student);
-                            }}
-                            disabled={deletingId === student.id}
-                            title={`Eliminar permanentemente a ${student.name}`}
-                            className="p-1.5 rounded-lg active:scale-90 transition-all hover:bg-red-50"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: deletingId === student.id ? 'wait' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              opacity: deletingId === student.id ? 0.3 : 0.7,
-                            }}
-                          >
-                            <Trash2 style={{ width: 17, height: 17, color: '#e11d48' }} />
-                          </button>
-                        )}
-
-                        <button style={{ color: '#afafaf', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+                        <button
+                          style={{ color: '#afafaf', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                          aria-label={isExpanded ? 'Contraer' : 'Expandir'}
+                        >
                           {isExpanded
                             ? <ChevronUp style={{ width: 20, height: 20 }} />
                             : <ChevronDown style={{ width: 20, height: 20 }} />}
@@ -839,105 +877,92 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                         style={{
                           padding: '14px',
                           borderTop: '2px solid #f0f0f0',
-                          background: '#f7f7f7',
+                          background: '#f8fafc',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 12,
                         }}
                       >
-                        {/* 🛡️ Role Management section */}
+                        {/* 1. 📍 Información del Barrio y Alumno */}
                         <div
-                          className="rounded-xl flex items-center justify-between gap-3 p-3"
-                          style={{
-                            background: '#ffffff',
-                            border: '2px solid #e5e5e5',
-                          }}
+                          className="rounded-2xl p-3.5"
+                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div
-                              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                          <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
+                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                              <MapPin style={{ width: 14, height: 14, color: '#0369a1' }} />
+                              Información del Barrio
+                            </span>
+                            <span
+                              className="font-display font-bold text-[11px] rounded-full px-2.5 py-0.5"
                               style={{
-                                background: isTargetInstructor ? '#3c3c3c' : '#f0f0f0',
-                                color: isTargetInstructor ? '#ffc800' : '#777777',
+                                background: isTargetSuper ? '#222222' : isTargetInstructor ? '#3c3c3c' : '#f0f0f0',
+                                color: isTargetSuper ? '#ffc800' : isTargetInstructor ? '#ffc800' : '#555555',
                               }}
                             >
-                              <Shield style={{ width: 18, height: 18 }} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-display font-bold" style={{ fontSize: 13, color: '#3c3c3c' }}>
-                                Rol: {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Instructor 🛡️' : 'Alumno 📖'}
+                              {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Instructor 🛡️' : 'Alumno 📖'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">Barrio / Rama</p>
+                              <p className="font-bold text-slate-800 text-sm mt-0.5">
+                                {student.ward || <span className="text-slate-400 font-normal italic">Sin barrio registrado</span>}
                               </p>
-                              <p className="truncate" style={{ fontSize: 11, color: '#777777' }}>
-                                {isTargetSuper
-                                  ? 'Cuenta principal (laconeo@gmail.com). Permisos totales.'
-                                  : isTargetInstructor
-                                  ? 'Acceso al panel instructor y cambio de roles.'
-                                  : 'Acceso solo a lecturas, cartas y racha propia.'}
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">Clase de Seminario</p>
+                              <p className="font-bold text-slate-800 text-sm mt-0.5 truncate">
+                                {student.seminaryClass || 'Seminario - Antiguo Testamento'}
+                              </p>
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</p>
+                              <p className="font-semibold text-slate-700 truncate mt-0.5">
+                                {student.email}
+                              </p>
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">Última Lectura Registrada</p>
+                              <p className="font-semibold text-slate-700 mt-0.5">
+                                {student.lastCompletedDate || 'Aún no ha completado lecturas'}
                               </p>
                             </div>
                           </div>
-
-                          {!isTargetSuper && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleRole(student);
-                              }}
-                              className="font-display font-bold shrink-0 rounded-xl px-3 py-1.5 transition-all active:scale-95 shadow-sm"
-                              style={{
-                                fontSize: 12,
-                                background: isTargetInstructor ? '#ff4b4b' : '#3c3c3c',
-                                color: isTargetInstructor ? '#ffffff' : '#ffc800',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                              title={isTargetInstructor ? 'Quitar rol de instructor' : 'Asignar rol de instructor'}
-                            >
-                              {isTargetInstructor ? 'Quitar Instructor' : 'Hacer Instructor'}
-                            </button>
-                          )}
                         </div>
 
-                        {/* Meta info */}
+                        {/* 2. 🏆 Cartas Desbloqueadas */}
                         <div
-                          style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: 8,
-                            fontSize: 13,
-                            color: '#3c3c3c',
-                            paddingBottom: 10,
-                            borderBottom: '2px solid #e5e5e5',
-                          }}
+                          className="rounded-2xl p-3.5"
+                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
                         >
-                          {student.ward && (
-                            <span><strong>Rama/Barrio:</strong> {student.ward}</span>
-                          )}
-                          <span><strong>Clase:</strong> {student.seminaryClass || 'Seminario Antiguo Testamento'}</span>
-                          <span><strong>Racha máx.:</strong> {student.highestStreak}d</span>
-                          <span><strong>Última lectura:</strong> {student.lastCompletedDate || '—'}</span>
-                        </div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                              <Award style={{ width: 15, height: 15, color: '#ffc800' }} />
+                              Cartas Desbloqueadas ({student.unlockedBadgeIds.length})
+                            </span>
+                            <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                              Premios y Patriarcas
+                            </span>
+                          </div>
 
-                        {/* Badges earned */}
-                        <div>
-                          <p className="font-bold mb-2" style={{ fontSize: 13, color: '#3c3c3c' }}>
-                            Cartas obtenidas:
-                          </p>
                           <div className="flex flex-wrap gap-2">
                             {Object.values(SPECIAL_BADGES).map((badge) => {
                               const won = student.unlockedBadgeIds.includes(badge.id);
                               return (
                                 <div
                                   key={badge.id}
-                                  className="font-bold flex items-center gap-1 rounded-xl px-2.5"
+                                  className="font-bold flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs"
                                   style={{
-                                    height: 28,
-                                    fontSize: 12,
                                     background: won
                                       ? (badge.tier === 'gold' ? '#fffbe0' : '#f5eeff')
-                                      : '#efefef',
-                                    border: `2px solid ${won ? (badge.tier === 'gold' ? '#ffc800' : '#a560f0') : '#e0e0e0'}`,
-                                    color: won ? '#3c3c3c' : '#afafaf',
+                                      : '#f8fafc',
+                                    border: `2px solid ${won ? (badge.tier === 'gold' ? '#ffc800' : '#a560f0') : '#e2e8f0'}`,
+                                    color: won ? '#3c3c3c' : '#94a3b8',
                                   }}
                                 >
                                   <span>{won ? '✓' : '🔒'}</span>
@@ -948,121 +973,185 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Day matrix */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-bold" style={{ fontSize: 13, color: '#3c3c3c' }}>
-                              Matriz de Lecturas (clic para marcar/desmarcar):
-                            </p>
-                          </div>
-                          <div
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(7, 1fr)',
-                              gap: 5,
-                            }}
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
-                              const done = student.completedDays.includes(day);
-                              return (
-                                <button
-                                  key={day}
-                                  onClick={() => handleToggleDayForStudent(student.id, day)}
-                                  title={`Día ${day}: ${done ? 'Completado' : 'Pendiente'}`}
-                                  className="font-display font-bold flex items-center justify-center transition-all active:scale-95"
-                                  style={{
-                                    height: 34,
-                                    borderRadius: 10,
-                                    fontSize: 13,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: done ? '#58cc02' : '#e5e5e5',
-                                    color: done ? '#ffffff' : '#777777',
-                                  }}
-                                >
-                                  {day}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* WhatsApp invite button */}
-                        <button
-                          id={`invite-whatsapp-btn-${student.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleInviteWhatsApp(student);
-                          }}
-                          className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl active:scale-95 transition-all"
-                          style={{
-                            height: 44,
-                            fontSize: 14,
-                            background: '#25D366',
-                            borderBottom: '4px solid #1aab52',
-                            color: '#ffffff',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
+                        {/* 3. 🔥 Días de Racha de Lectura */}
+                        <div
+                          className="rounded-2xl p-3.5"
+                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
                         >
-                          <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20, flexShrink: 0 }}>
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                          </svg>
-                          <span>Invitar por WhatsApp</span>
-                        </button>
-
-                        {/* Student notes */}
-                        {student.notes && Object.keys(student.notes).length > 0 && (
-                          <div>
-                            <p className="font-bold mb-2" style={{ fontSize: 13, color: '#3c3c3c' }}>
-                              Reflexiones del alumno:
-                            </p>
-                            <div
-                              className="no-scrollbar"
-                              style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 120, overflowY: 'auto' }}
-                            >
-                              {Object.entries(student.notes).map(([d, txt]) => (
-                                <div
-                                  key={d}
-                                  className="rounded-xl"
-                                  style={{ padding: '8px 10px', background: '#ffffff', border: '2px solid #e5e5e5', fontSize: 13 }}
-                                >
-                                  <span className="font-bold" style={{ color: '#a560f0' }}>Día {d}: </span>
-                                  <span style={{ color: '#3c3c3c', fontStyle: 'italic' }}>«{txt}»</span>
-                                </div>
-                              ))}
+                          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 flex-wrap gap-2">
+                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                              <Flame style={{ width: 15, height: 15, color: '#ff9600' }} />
+                              Días de Racha de Lectura
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-display font-extrabold text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-lg">
+                                🔥 Racha: {student.currentStreak} días
+                              </span>
+                              <span className="font-display font-bold text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
+                                ⭐ Máx: {student.highestStreak}d
+                              </span>
+                              <span className="font-display font-bold text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
+                                📖 {student.completedDays.length}/30 días ({percent}%)
+                              </span>
                             </div>
                           </div>
-                        )}
 
-                        {/* Danger zone: Eliminar estudiante */}
-                        {!isTargetSuper && (
-                          <div
-                            className="pt-2 mt-1"
-                            style={{ borderTop: '1px dashed #fca5a5' }}
-                          >
-                            <button
-                              id={`delete-student-btn-${student.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteStudent(student);
-                              }}
-                              disabled={deletingId === student.id}
-                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl active:scale-95 transition-all"
+                          <div className="mb-2">
+                            <p className="text-[11px] font-bold text-slate-500 mb-1.5">
+                              Matriz de Lecturas (toca para marcar o desmarcar):
+                            </p>
+                            <div
                               style={{
-                                height: 42,
-                                fontSize: 13,
-                                background: '#fff1f2',
-                                border: '2px solid #fecdd3',
-                                color: '#e11d48',
-                                cursor: deletingId === student.id ? 'wait' : 'pointer',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(7, 1fr)',
+                                gap: 5,
                               }}
                             >
-                              <Trash2 style={{ width: 16, height: 16 }} />
-                              <span>{deletingId === student.id ? 'Eliminando estudiante...' : 'Eliminar Estudiante / Usuario de Prueba'}</span>
-                            </button>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                                const done = student.completedDays.includes(day);
+                                return (
+                                  <button
+                                    key={day}
+                                    onClick={() => handleToggleDayForStudent(student.id, day)}
+                                    title={`Día ${day}: ${done ? 'Completado' : 'Pendiente'}`}
+                                    className="font-display font-bold flex items-center justify-center transition-all active:scale-95"
+                                    style={{
+                                      height: 32,
+                                      borderRadius: 8,
+                                      fontSize: 12,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      background: done ? '#58cc02' : '#e5e5e5',
+                                      color: done ? '#ffffff' : '#777777',
+                                    }}
+                                  >
+                                    {day}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        )}
+
+                          {/* Student notes */}
+                          {student.notes && Object.keys(student.notes).length > 0 && (
+                            <div className="mt-2.5 pt-2 border-t border-slate-100">
+                              <p className="font-bold text-xs text-slate-600 mb-1.5">
+                                Reflexiones del alumno ({Object.keys(student.notes).length}):
+                              </p>
+                              <div
+                                className="no-scrollbar flex flex-col gap-1.5 max-h-28 overflow-y-auto"
+                              >
+                                {Object.entries(student.notes).map(([d, txt]) => (
+                                  <div
+                                    key={d}
+                                    className="rounded-xl p-2 text-xs bg-slate-50 border border-slate-200"
+                                  >
+                                    <span className="font-bold text-purple-700">Día {d}: </span>
+                                    <span className="text-slate-700 italic">«{txt}»</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 4. 🛠️ BOTONES DE ACCIÓN AL FINAL */}
+                        <div
+                          className="rounded-2xl p-3.5 flex flex-col gap-2 mt-1"
+                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
+                        >
+                          <p className="font-display font-bold text-xs uppercase text-slate-400 tracking-wider mb-0.5">
+                            Acciones para {student.firstName || student.name.split(' ')[0]}
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {/* 1. Recordatorio por WhatsApp */}
+                            <button
+                              id={`whatsapp-reminder-btn-${student.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInviteWhatsApp(student);
+                              }}
+                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
+                              style={{
+                                background: '#25D366',
+                                borderBottom: '3px solid #1aab52',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 17, height: 17, flexShrink: 0 }}>
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                              </svg>
+                              <span>Recordatorio por WhatsApp</span>
+                            </button>
+
+                            {/* 2. Convertir en instructor */}
+                            {!isTargetSuper && (
+                              <button
+                                id={`toggle-role-btn-${student.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleRole(student);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
+                                style={{
+                                  background: isTargetInstructor ? '#3c3c3c' : '#7e22ce',
+                                  borderBottom: isTargetInstructor ? '3px solid #222222' : '3px solid #581c87',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Shield style={{ width: 16, height: 16, color: '#ffc800' }} />
+                                <span>{isTargetInstructor ? 'Quitar Instructor (Hacer Alumno)' : 'Convertir en Instructor'}</span>
+                              </button>
+                            )}
+
+                            {/* 3. Modificar perfil */}
+                            <button
+                              id={`edit-profile-btn-${student.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditProfile(student);
+                              }}
+                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
+                              style={{
+                                background: '#1cb0f6',
+                                borderBottom: '3px solid #1899d6',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Edit2 style={{ width: 15, height: 15 }} />
+                              <span>Modificar Perfil</span>
+                            </button>
+
+                            {/* 4. Borrar usuario */}
+                            {!isTargetSuper && (
+                              <button
+                                id={`delete-user-btn-${student.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteStudent(student);
+                                }}
+                                disabled={deletingId === student.id}
+                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
+                                style={{
+                                  background: '#fff1f2',
+                                  border: '2px solid #fecdd3',
+                                  color: '#e11d48',
+                                  cursor: deletingId === student.id ? 'wait' : 'pointer',
+                                }}
+                              >
+                                <Trash2 style={{ width: 15, height: 15 }} />
+                                <span>{deletingId === student.id ? 'Borrando...' : 'Borrar Usuario'}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1079,7 +1168,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             padding: '12px 14px',
             borderTop: '2px solid #e5e5e5',
             background: '#ffffff',
-            flexShrink: 0,
           }}
         >
           <button
@@ -1120,6 +1208,122 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             Exportar Reporte
           </button>
         </div>
+
+        {/* ── Modal Flotante: Modificar Perfil de Alumno ── */}
+        {editingStudent && (
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+            onClick={() => setEditingStudent(null)}
+          >
+            <div
+              className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl flex flex-col gap-3.5 animate-scaleUp"
+              onClick={(e) => e.stopPropagation()}
+              style={{ border: '3px solid #e5e5e5' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                    <Edit2 style={{ width: 18, height: 18 }} />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-slate-800 text-base leading-tight">
+                      Modificar Perfil
+                    </h3>
+                    <p className="text-xs text-slate-400 truncate max-w-[180px]">
+                      {editingStudent.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingStudent(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                  aria-label="Cerrar"
+                >
+                  <X style={{ width: 16, height: 16 }} />
+                </button>
+              </div>
+
+              {/* Formulario */}
+              <form onSubmit={handleSaveProfile} className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={editFirstName}
+                    onChange={(e) => setEditFirstName(e.target.value)}
+                    required
+                    placeholder="Ej. Juan"
+                    className="w-full px-3 py-2 rounded-xl text-sm border-2 border-slate-200 focus:border-sky-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Apellido
+                  </label>
+                  <input
+                    type="text"
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                    placeholder="Ej. Pérez"
+                    className="w-full px-3 py-2 rounded-xl text-sm border-2 border-slate-200 focus:border-sky-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Barrio o Rama
+                  </label>
+                  <input
+                    type="text"
+                    value={editWard}
+                    onChange={(e) => setEditWard(e.target.value)}
+                    placeholder="Ej. Barrio Belgrano"
+                    className="w-full px-3 py-2 rounded-xl text-sm border-2 border-slate-200 focus:border-sky-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Clase de Seminario
+                  </label>
+                  <select
+                    value={editClass}
+                    onChange={(e) => setEditClass(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm border-2 border-slate-200 focus:border-sky-500 outline-none bg-white"
+                  >
+                    {SEMINARY_CLASSES.map((cls) => (
+                      <option key={cls} value={cls}>
+                        {cls}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStudent(null)}
+                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors text-sm"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-white bg-sky-500 hover:bg-sky-600 transition-colors text-sm shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <Save style={{ width: 16, height: 16 }} />
+                    <span>{isSavingProfile ? 'Guardando...' : 'Guardar'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
   );
 };

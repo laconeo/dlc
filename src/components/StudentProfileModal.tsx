@@ -581,6 +581,21 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </button>
             )}
 
+            {/* Version label */}
+            <p
+              style={{
+                textAlign: 'center',
+                fontSize: 11,
+                color: '#afafaf',
+                fontWeight: 600,
+                marginTop: -4,
+                marginBottom: -4,
+                letterSpacing: '0.04em',
+              }}
+            >
+              Detente, Lee, Conecta · v{__APP_VERSION__}
+            </p>
+
             {/* Logout */}
             <button
               onClick={() => { if (onLogout) onLogout(); else onSwitchAccount(); }}
@@ -606,3 +621,4 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     </div>
   );
 };
+

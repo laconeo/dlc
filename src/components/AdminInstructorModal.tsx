@@ -83,7 +83,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'streak7' | 'completed' | 'recent'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'students'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -238,20 +238,17 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
 
     // 2. Filtro por estado / categoría
     if (selectedFilter === 'instructors') return isUserInstructor(s);
-    if (selectedFilter === 'streak7') return s.currentStreak >= 7;
-    if (selectedFilter === 'completed') return s.completedDays.length >= 30;
-    if (selectedFilter === 'recent') return s.completedDays.length > 0;
+    if (selectedFilter === 'students') return !isUserInstructor(s);
     return true;
   });
 
   const instructorsCount = students.filter(isUserInstructor).length;
+  const studentsOnlyCount = students.filter((s) => !isUserInstructor(s)).length;
 
   const FILTERS = [
     { id: 'all' as const, label: `Todos (${students.length})`, color: '#3c3c3c', bg: '#3c3c3c' },
-    { id: 'instructors' as const, label: `Instructores (${instructorsCount})`, color: '#ff9600', bg: '#222222' },
-    { id: 'streak7' as const, label: 'Racha ≥7', color: '#ff9600', bg: '#ff9600' },
-    { id: 'completed' as const, label: 'Meta 30d', color: '#58cc02', bg: '#58cc02' },
-    { id: 'recent' as const, label: 'Con lecturas', color: '#1cb0f6', bg: '#1cb0f6' },
+    { id: 'instructors' as const, label: `Instructores (${instructorsCount})`, color: '#ff9600', bg: '#ff9600' },
+    { id: 'students' as const, label: `Alumnos (${studentsOnlyCount})`, color: '#1cb0f6', bg: '#1cb0f6' },
   ];
 
   if (isOpen === false) return null;
@@ -278,7 +275,8 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
 
   return (
     <div
-      className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn"
+      className="w-full h-full overflow-y-auto no-scrollbar bg-[#f7f7f7] animate-fadeIn flex flex-col"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* ── Header: dark, Duolingo instructor style ── */}
       <div
@@ -289,7 +287,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexShrink: 0,
         }}
       >
         <div className="flex items-center gap-3">
@@ -361,7 +358,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     padding: '12px 14px',
                     background: '#f7f7f7',
                     borderBottom: '2px solid #e5e5e5',
-                    flexShrink: 0,
                   }}
                 >
                   <StatCard
@@ -402,7 +398,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
-                    flexShrink: 0,
                     background: '#ffffff',
                   }}
                 >
@@ -489,7 +484,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                 {actionMessage && (
                   <div
                     className="animate-fadeIn"
-                    style={{ background: '#58cc02', color: '#ffffff', fontWeight: 700, fontSize: 14, padding: '8px 20px', textAlign: 'center', flexShrink: 0 }}
+                    style={{ background: '#58cc02', color: '#ffffff', fontWeight: 700, fontSize: 14, padding: '8px 20px', textAlign: 'center' }}
                   >
                     {actionMessage}
                   </div>
@@ -502,7 +497,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                       padding: '12px 14px',
                       background: '#ffffff',
                       borderBottom: '2px solid #e5e5e5',
-                      flexShrink: 0,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
@@ -640,11 +634,11 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           })()}
 
         {/* ── Student Roster ── */}
-        <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: '10px 12px', background: '#f7f7f7' }}>
+        <div style={{ padding: '10px 12px 60px 12px', background: '#f7f7f7' }}>
           {loading ? (
             <div className="text-center py-12">
               <span className="text-4xl animate-spin inline-block mb-3">⏳</span>
-              <p style={{ fontSize: 14, color: '#777777' }}>Cargando alumnos...</p>
+              <p style={{ fontSize: 14, color: '#777777' }}>Cargando usuarios...</p>
             </div>
           ) : filteredStudents.length === 0 ? (
             <div
@@ -653,13 +647,13 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             >
               <Users style={{ width: 44, height: 44, color: '#afafaf', margin: '0 auto 12px' }} />
               <p style={{ fontSize: 16, fontWeight: 700, color: '#3c3c3c' }}>
-                {searchQuery || selectedWard !== 'all'
-                  ? 'No se encontraron alumnos con ese criterio de búsqueda'
-                  : 'No hay más alumnos registrados aún'}
+                {searchQuery || selectedFilter !== 'all'
+                  ? 'No se encontraron usuarios con ese criterio de búsqueda'
+                  : 'No hay más usuarios registrados aún'}
               </p>
               <p style={{ fontSize: 13, color: '#777777', marginTop: 6, maxWidth: 320, marginInline: 'auto' }}>
-                {searchQuery || selectedWard !== 'all'
-                  ? 'Prueba borrando la búsqueda o cambiando el filtro de Barrio/Rama seleccionado.'
+                {searchQuery || selectedFilter !== 'all'
+                  ? 'Prueba borrando la búsqueda o cambiando el filtro seleccionado.'
                   : 'Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.'}
               </p>
             </div>

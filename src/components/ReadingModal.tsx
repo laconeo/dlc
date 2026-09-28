@@ -84,7 +84,10 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
       await onToggleComplete(reading.day, note);
       if (willComplete) {
         setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 2400);
+        setTimeout(() => {
+          setShowCelebration(false);
+          onClose();
+        }, 2400);
       }
     } finally {
       setLoading(false);

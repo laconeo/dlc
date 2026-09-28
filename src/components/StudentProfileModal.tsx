@@ -80,10 +80,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `📖 ¡Hola! Estoy en el desafío «Detente, Lee, Conecta» de Seminario.\n🔥 Racha actual: ${currentStreak} días con Jesucristo.\n⭐ ${completedDays.length} de 30 lecturas del Antiguo Testamento.\n¡Únete tú también!`
+      `📖 ¡Hola! Estoy en el desafío «Detente, Lee, Conecta» de Seminario.\n🔥 Racha actual: ${currentStreak} días con Jesucristo.\n⭐ ${completedDays.length} de 30 lecturas del Antiguo Testamento.\n¡Únete tú también! 👇\nhttps://laconeo.github.io/dlc/`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
+
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();

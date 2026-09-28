@@ -67,14 +67,17 @@ export const PathView: React.FC<PathViewProps> = ({
   const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
 
   let nextActiveDay = 1;
-  if (todayReading) {
+  if (todayReading && !completedDays.includes(todayReading.day)) {
+    // El día de hoy existe en el calendario y aún no está completado → es el activo
     nextActiveDay = todayReading.day;
   } else {
-    for (let i = 1; i <= 31; i++) {
-      if (!completedDays.includes(i)) {
-        nextActiveDay = i;
-        break;
-      }
+    // El día de hoy ya fue completado (o no hay lectura para hoy):
+    // buscar el primer día del calendario que no esté completado
+    const nextPending = READINGS_DATA.find((r) => !completedDays.includes(r.day));
+    if (nextPending) {
+      nextActiveDay = nextPending.day;
+    } else {
+      nextActiveDay = -1; // todos completados
     }
   }
 

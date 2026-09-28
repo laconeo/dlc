@@ -563,14 +563,37 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
 
 export async function saveStudentNote(studentId: string, day: number, note: string): Promise<Student> {
   try {
-    await supabase
+    // Usar el ID del usuario autenticado para respetar RLS (auth.uid() = student_id)
+    const { data: { user } } = await supabase.auth.getUser();
+    const uid = user?.id ?? studentId;
+
+    // Intentar upsert; si falla por constraint faltante, hacer insert o update por separado
+    const { error: upsertError } = await supabase
       .from('student_notes')
-      .upsert({ student_id: studentId, day, note: note.trim() }, { onConflict: 'student_id,day' });
+      .upsert({ student_id: uid, day, note: note.trim() }, { onConflict: 'student_id,day' });
+
+    if (upsertError) {
+      // Fallback: intentar insert; si ya existe, hacer update
+      const { error: insertError } = await supabase
+        .from('student_notes')
+        .insert({ student_id: uid, day, note: note.trim() });
+
+      if (insertError) {
+        // Ya existe — hacer update directo
+        const { error: updateError } = await supabase
+          .from('student_notes')
+          .update({ note: note.trim() })
+          .eq('student_id', uid)
+          .eq('day', day);
+
+        if (updateError) throw new Error(updateError.message);
+      }
+    }
 
     const { data, error } = await supabase
       .from('students_full')
       .select('*')
-      .eq('id', studentId)
+      .eq('id', uid)
       .single();
 
     if (!error && data) {
@@ -582,8 +605,9 @@ export async function saveStudentNote(studentId: string, day: number, note: stri
     console.warn('saveStudentNote Supabase fallback:', err);
   }
 
+  // Fallback local: al menos guardar en localStorage para esta sesión
   const local = getLocalStudent();
-  if (local && local.id === studentId) {
+  if (local && (local.id === studentId)) {
     if (!local.notes) local.notes = {};
     local.notes[day] = note.trim();
     saveLocalStudent(local);

@@ -19,9 +19,10 @@ import {
   ArrowLeft,
   MapPin,
   TrendingUp,
+  Trash2,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
-import { fetchInstructorData, toggleStudentDay, updateStudentRole } from '../utils/api';
+import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent } from '../utils/api';
 import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
 import { getUserInitials } from './TopHeader';
 
@@ -85,6 +86,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'streak7' | 'completed' | 'recent'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -163,6 +165,39 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
       mensaje = `📖 ¡Hola ${nombre}! Vi que llevas ${dias} ${dias === 1 ? 'día' : 'días'} en el desafío «Detente, Lee, Conecta» de Seminario. ¡Vas muy bien! 🔥 Recuerda seguir leyendo cada día, aún tienes tiempo de completar el desafío. ¡Ánimo! 👇\nhttps://laconeo.github.io/dlc/`;
     }
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`, '_blank');
+  };
+
+  const handleDeleteStudent = async (targetStudent: Student) => {
+    const isTargetSuper = (targetStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    if (isTargetSuper) {
+      alert('La cuenta de Superadministrador (laconeo@gmail.com) no puede ser eliminada.');
+      return;
+    }
+
+    if (currentStudent && currentStudent.id === targetStudent.id) {
+      alert('No puedes eliminar tu propia cuenta desde este panel.');
+      return;
+    }
+
+    const confirmMsg = `¿Eliminar permanentemente a este usuario?\n\n• Nombre: ${targetStudent.name}\n• Email: ${targetStudent.email}\n\n⚠️ Esta acción eliminará su registro, días completados, notas y cuenta. No se puede deshacer.`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setDeletingId(targetStudent.id);
+    try {
+      await deleteStudent(targetStudent.id);
+      setStudents((prev) => prev.filter((s) => s.id !== targetStudent.id));
+      setActionMessage(`Usuario "${targetStudent.name}" eliminado correctamente.`);
+      setTimeout(() => setActionMessage(null), 3500);
+      if (onStudentUpdated) onStudentUpdated();
+    } catch (err: any) {
+      console.error('Error al eliminar estudiante:', err);
+      alert(`Error al eliminar: ${err?.message || 'Error desconocido'}`);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const exportReport = () => {
@@ -682,6 +717,31 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           </div>
                         </div>
 
+                        {/* Quick Delete button (not for superadmin) */}
+                        {!isTargetSuper && (
+                          <button
+                            id={`quick-delete-student-${student.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStudent(student);
+                            }}
+                            disabled={deletingId === student.id}
+                            title={`Eliminar permanentemente a ${student.name}`}
+                            className="p-1.5 rounded-lg active:scale-90 transition-all hover:bg-red-50"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: deletingId === student.id ? 'wait' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: deletingId === student.id ? 0.3 : 0.7,
+                            }}
+                          >
+                            <Trash2 style={{ width: 17, height: 17, color: '#e11d48' }} />
+                          </button>
+                        )}
+
                         <button style={{ color: '#afafaf', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
                           {isExpanded
                             ? <ChevronUp style={{ width: 20, height: 20 }} />
@@ -890,6 +950,35 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Danger zone: Eliminar estudiante */}
+                        {!isTargetSuper && (
+                          <div
+                            className="pt-2 mt-1"
+                            style={{ borderTop: '1px dashed #fca5a5' }}
+                          >
+                            <button
+                              id={`delete-student-btn-${student.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteStudent(student);
+                              }}
+                              disabled={deletingId === student.id}
+                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl active:scale-95 transition-all"
+                              style={{
+                                height: 42,
+                                fontSize: 13,
+                                background: '#fff1f2',
+                                border: '2px solid #fecdd3',
+                                color: '#e11d48',
+                                cursor: deletingId === student.id ? 'wait' : 'pointer',
+                              }}
+                            >
+                              <Trash2 style={{ width: 16, height: 16 }} />
+                              <span>{deletingId === student.id ? 'Eliminando estudiante...' : 'Eliminar Estudiante / Usuario de Prueba'}</span>
+                            </button>
                           </div>
                         )}
                       </div>

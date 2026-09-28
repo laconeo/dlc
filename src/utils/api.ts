@@ -861,6 +861,36 @@ export async function updateStudentRole(studentId: string, newRole: UserRole): P
   }
 }
 
+// ── DELETE STUDENT ────────────────────────────────────────────────────────────
+
+export async function deleteStudent(studentId: string): Promise<void> {
+  // 1. Intentar via RPC (borra de public.students y auth.users con permisos de admin)
+  const { error: rpcError } = await supabase.rpc('delete_student', { p_student_id: studentId });
+
+  if (rpcError) {
+    console.warn('delete_student RPC failed, trying direct delete:', rpcError.message);
+    // 2. Fallback: borrar directamente de public.students (CASCADE elimina días, notas y badges)
+    const { error: delError } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', studentId);
+
+    if (delError) {
+      throw new Error(`No se pudo eliminar el estudiante: ${delError.message}`);
+    }
+  }
+
+  // 3. Limpiar de la caché local de instructores
+  try {
+    const stored = getStoredInstructorStudents();
+    const filtered = stored.filter((s) => s.id !== studentId);
+    localStorage.setItem(LOCAL_INSTRUCTOR_STUDENTS_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('Error al limpiar estudiante de caché local:', err);
+  }
+}
+
+
 // ── LOGOUT ────────────────────────────────────────────────────────────────────
 
 export async function logoutStudent(): Promise<void> {

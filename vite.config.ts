@@ -2,13 +2,14 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
+import fs from 'fs';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const pkg = require('./package.json');
 
 export default defineConfig(({ command }) => {
   const isDev = command === 'serve';
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8'));
 
   // Only mount the Express API middleware in dev (Supabase handles data in production)
   const devPlugins: any[] = [];

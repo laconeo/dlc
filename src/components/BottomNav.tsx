@@ -1,7 +1,7 @@
 import React from 'react';
-import { Map, Trophy, HeartHandshake, User } from 'lucide-react';
+import { Map, Trophy, HeartHandshake, User, Layers } from 'lucide-react';
 
-export type NavTab = 'path' | 'cards' | 'ministering' | 'profile';
+export type NavTab = 'path' | 'dailyCards' | 'cards' | 'ministering' | 'profile';
 
 interface BottomNavProps {
   currentTab: NavTab;
@@ -16,6 +16,13 @@ const TABS = [
     Icon: Map,
     activeColor: '#1cb0f6',
     activeBg: '#e8f7ff',
+  },
+  {
+    id: 'dailyCards' as NavTab,
+    label: 'Cartas',
+    Icon: Layers,
+    activeColor: '#a855f7',
+    activeBg: '#faf5ff',
   },
   {
     id: 'cards' as NavTab,
@@ -35,8 +42,8 @@ const TABS = [
     id: 'profile' as NavTab,
     label: 'Perfil',
     Icon: User,
-    activeColor: '#a560f0',
-    activeBg: '#f5eeff',
+    activeColor: '#78716c',
+    activeBg: '#f5f5f4',
   },
 ];
 

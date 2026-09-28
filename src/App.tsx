@@ -3,6 +3,7 @@ import { TopHeader } from './components/TopHeader';
 import { PathView } from './components/PathView';
 import { ReadingModal } from './components/ReadingModal';
 import { CardsGalleryModal } from './components/CardsGalleryModal';
+import { DailyCardsModal } from './components/DailyCardsModal';
 import { AdminInstructorModal } from './components/AdminInstructorModal';
 import { StudentAuthModal } from './components/StudentAuthModal';
 import { MinisteringGuideModal } from './components/MinisteringGuideModal';
@@ -13,7 +14,7 @@ import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, log
 import { supabase } from './utils/supabase';
 import { SPECIAL_BADGES } from './data/readings';
 
-export type AppPage = 'path' | 'reading' | 'cards' | 'ministering' | 'profile' | 'instructor';
+export type AppPage = 'path' | 'reading' | 'dailyCards' | 'cards' | 'ministering' | 'profile' | 'instructor';
 
 export default function App() {
   const [student, setStudent] = useState<Student | null>(null);
@@ -154,12 +155,13 @@ export default function App() {
 
   // Map currentPage to bottom nav tab when applicable
   const currentTab: NavTab =
-    currentPage === 'cards' || currentPage === 'ministering' || currentPage === 'profile'
+    currentPage === 'dailyCards' || currentPage === 'cards' || currentPage === 'ministering' || currentPage === 'profile'
       ? currentPage
       : 'path';
 
   const showBottomNav =
     currentPage === 'path' ||
+    currentPage === 'dailyCards' ||
     currentPage === 'cards' ||
     currentPage === 'ministering' ||
     currentPage === 'profile';
@@ -207,7 +209,16 @@ export default function App() {
             />
           )}
 
-          {/* PAGE 3: COLECCIÓN DE CARTAS (Página completa) */}
+          {/* PAGE 3A: CARTAS DE LECTURA DIARIA (30 cartas con subida de instructor) */}
+          {currentPage === 'dailyCards' && (
+            <DailyCardsModal
+              student={student}
+              isOpen={true}
+              onClose={() => setCurrentPage('path')}
+            />
+          )}
+
+          {/* PAGE 3B: PREMIOS Y PATRIARCAS (Página completa) */}
           {currentPage === 'cards' && (
             <CardsGalleryModal
               student={student}

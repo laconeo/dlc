@@ -13,6 +13,10 @@ import {
   BookOpen,
   RefreshCw,
   Lock,
+  Cloud,
+  CloudOff,
+  AlertTriangle,
+  RotateCw,
 } from 'lucide-react';
 import { Student, isUserInstructor } from '../types';
 import { READINGS_DATA } from '../data/readings';
@@ -21,6 +25,9 @@ import {
   saveDailyCard,
   deleteDailyCard,
   fetchRemoteDailyCards,
+  checkDailyCardsCloudStatus,
+  syncLocalCardsToCloud,
+  CloudStatusResult,
 } from '../utils/dailyCardsStorage';
 
 interface DailyCardsModalProps {
@@ -30,7 +37,8 @@ interface DailyCardsModalProps {
 }
 
 /**
- * Optimiza y comprime la imagen a max 1200px de ancho para almacenamiento eficiente
+ * Optimiza y comprime la imagen a max 900px de ancho y calidad balanceada (~80-120KB)
+ * para sincronización rápida y visualización nítida en todos los dispositivos de los alumnos.
  */
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -39,7 +47,7 @@ function compressImage(file: File): Promise<string> {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
+        const MAX_WIDTH = 900;
         let width = img.width;
         let height = img.height;
 
@@ -57,7 +65,7 @@ function compressImage(file: File): Promise<string> {
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
         resolve(dataUrl);
       };
       img.onerror = reject;
@@ -78,8 +86,10 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
   const [cardsMap, setCardsMap] = useState<Record<number, string>>(() => getStoredDailyCards());
   const [uploadingDay, setUploadingDay] = useState<number | null>(null);
   const [activePreviewDay, setActivePreviewDay] = useState<number | null>(null);
-  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; isError?: boolean } | null>(null);
   const [previewAsStudent, setPreviewAsStudent] = useState<boolean>(false);
+  const [cloudStatus, setCloudStatus] = useState<CloudStatusResult | null>(null);
+  const [syncingCloud, setSyncingCloud] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetDayRef = useRef<number>(1);
@@ -90,12 +100,55 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
   // Días completados por el alumno
   const completedDays = student?.completedDays || [];
 
-  // Sincronizar remotamente
+  // Sincronizar remotamente y verificar estado de la nube
   useEffect(() => {
+    checkDailyCardsCloudStatus().then((status) => {
+      setCloudStatus(status);
+      if (status.available) {
+        // Si la tabla existe en la nube, sincronizar las cartas que estén solo en local
+        syncLocalCardsToCloud().then(({ syncedCount }) => {
+          if (syncedCount > 0) {
+            fetchRemoteDailyCards().then(setCardsMap);
+          }
+        });
+      }
+    });
+
     fetchRemoteDailyCards().then((remote) => {
       setCardsMap(remote);
     });
   }, []);
+
+  const handleManualSync = async () => {
+    setSyncingCloud(true);
+    try {
+      const { syncedCount, error } = await syncLocalCardsToCloud();
+      const updated = await fetchRemoteDailyCards();
+      setCardsMap(updated);
+      const status = await checkDailyCardsCloudStatus();
+      setCloudStatus(status);
+
+      if (error) {
+        setFeedbackMsg({
+          text: `Error al subir a la nube: ${error}. Asegúrate de ejecutar supabase/daily_cards.sql en Supabase.`,
+          isError: true,
+        });
+      } else {
+        setFeedbackMsg({
+          text: `¡${syncedCount > 0 ? `${syncedCount} cartas sincronizadas` : 'Cartas sincronizadas'} con éxito en la nube!`,
+        });
+      }
+      setTimeout(() => setFeedbackMsg(null), 5000);
+    } catch (e: any) {
+      setFeedbackMsg({
+        text: `Error de sincronización: ${e?.message || 'Error desconocido'}`,
+        isError: true,
+      });
+      setTimeout(() => setFeedbackMsg(null), 5000);
+    } finally {
+      setSyncingCloud(false);
+    }
+  };
 
   // Mostramos los 30 días del desafío
   const daysList = READINGS_DATA.slice(0, 30);
@@ -123,15 +176,28 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
     setUploadingDay(day);
     try {
       const compressedDataUrl = await compressImage(file);
-      await saveDailyCard(day, compressedDataUrl, characterName);
+      const saveRes = await saveDailyCard(day, compressedDataUrl, characterName);
 
       setCardsMap((prev) => ({
         ...prev,
         [day]: compressedDataUrl,
       }));
 
-      setFeedbackMsg(`¡Carta del Día ${day} (${characterName}) guardada con éxito!`);
-      setTimeout(() => setFeedbackMsg(null), 3500);
+      // Actualizar el estado de la nube
+      const status = await checkDailyCardsCloudStatus();
+      setCloudStatus(status);
+
+      if (saveRes.cloudSynced) {
+        setFeedbackMsg({
+          text: `¡Carta del Día ${day} (${characterName}) subida a la nube! Visible para todos los alumnos que lean este día.`,
+        });
+      } else {
+        setFeedbackMsg({
+          text: `⚠️ Guardada solo en este dispositivo. La tabla en Supabase no respondió (${saveRes.error || 'ejecuta supabase/daily_cards.sql'}).`,
+          isError: true,
+        });
+      }
+      setTimeout(() => setFeedbackMsg(null), 6000);
     } catch (err) {
       console.error('Error al procesar la imagen:', err);
       alert('Hubo un error al procesar el archivo de imagen.');
@@ -219,11 +285,41 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
         </div>
       </div>
 
-      {/* ── Banner de feedback o aviso de Instructor ── */}
+      {/* ── Banner de feedback o aviso ── */}
       {feedbackMsg && (
-        <div className="bg-emerald-500 text-white font-bold text-sm py-2 px-4 text-center animate-fadeIn shrink-0 flex items-center justify-center gap-1.5 shadow-sm">
-          <CheckCircle style={{ width: 16, height: 16 }} />
-          <span>{feedbackMsg}</span>
+        <div
+          className={`${
+            feedbackMsg.isError ? 'bg-amber-600' : 'bg-emerald-600'
+          } text-white font-bold text-xs sm:text-sm py-2 px-4 text-center animate-fadeIn shrink-0 flex items-center justify-center gap-1.5 shadow-sm`}
+        >
+          {feedbackMsg.isError ? (
+            <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />
+          ) : (
+            <CheckCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+          )}
+          <span>{feedbackMsg.text}</span>
+        </div>
+      )}
+
+      {/* ── Aviso si la tabla en Supabase aún no está creada ── */}
+      {isInstructor && cloudStatus && !cloudStatus.available && (
+        <div className="bg-amber-500 text-white px-3.5 py-2 text-xs flex items-center justify-between gap-2 shrink-0 shadow-xs border-b border-amber-600 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CloudOff className="w-4 h-4 shrink-0 text-amber-100" />
+            <div className="leading-tight">
+              <span className="font-bold">Nube no configurada: </span>
+              <span className="text-amber-100">
+                Las cartas que subas solo se guardan en este dispositivo. Para que todos los alumnos las vean, ejecuta el script <strong>supabase/daily_cards.sql</strong> en Supabase SQL Editor.
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleManualSync}
+            disabled={syncingCloud}
+            className="bg-white text-amber-900 font-bold px-2.5 py-1 rounded text-[11px] shrink-0 hover:bg-amber-50 active:scale-95 transition-all shadow-xs cursor-pointer"
+          >
+            {syncingCloud ? 'Verificando...' : 'Reintentar'}
+          </button>
         </div>
       )}
 
@@ -231,24 +327,50 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
         <div className="bg-purple-50 border-b border-purple-200 py-2 px-3.5 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2">
             <Shield style={{ width: 16, height: 16, color: '#7e22ce', flexShrink: 0 }} />
-            <span className="text-xs font-bold text-purple-900 leading-tight">
-              {previewAsStudent
-                ? 'Vista de Alumno: Solo se ven las cartas de los días leídos.'
-                : 'Modo Maestro: Puedes subir y editar cartas para cada día.'}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-purple-900 leading-tight">
+                {previewAsStudent
+                  ? 'Vista Alumno (bloqueadas si no leyó)'
+                  : 'Modo Maestro'}
+              </span>
+              {cloudStatus?.available ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/90 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+                  <Cloud className="w-2.5 h-2.5 text-emerald-600" />
+                  Nube conectada
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full">
+                  <CloudOff className="w-2.5 h-2.5 text-amber-600" />
+                  Solo en este dispositivo
+                </span>
+              )}
+            </div>
           </div>
-          <button
-            onClick={() => setPreviewAsStudent((prev) => !prev)}
-            className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shrink-0 transition-colors border shadow-xs"
-            style={{
-              background: previewAsStudent ? '#9333ea' : '#ffffff',
-              color: previewAsStudent ? '#ffffff' : '#7e22ce',
-              borderColor: '#c084fc',
-              cursor: 'pointer',
-            }}
-          >
-            {previewAsStudent ? 'Ver como Maestro' : 'Ver como Alumno'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {cloudStatus?.available && (
+              <button
+                onClick={handleManualSync}
+                disabled={syncingCloud}
+                title="Sincronizar cartas locales a la nube"
+                className="text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-full border border-purple-300 bg-white text-purple-700 hover:bg-purple-100 transition-colors shadow-xs cursor-pointer"
+              >
+                <RotateCw className={`w-3 h-3 ${syncingCloud ? 'animate-spin' : ''}`} />
+                <span>Sincronizar</span>
+              </button>
+            )}
+            <button
+              onClick={() => setPreviewAsStudent((prev) => !prev)}
+              className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shrink-0 transition-colors border shadow-xs"
+              style={{
+                background: previewAsStudent ? '#9333ea' : '#ffffff',
+                color: previewAsStudent ? '#ffffff' : '#7e22ce',
+                borderColor: '#c084fc',
+                cursor: 'pointer',
+              }}
+            >
+              {previewAsStudent ? 'Ver como Maestro' : 'Ver como Alumno'}
+            </button>
+          </div>
         </div>
       )}
 

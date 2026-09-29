@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Shield,
@@ -22,9 +22,10 @@ import {
   Trash2,
   Edit2,
   Save,
+  Crown,
 } from 'lucide-react';
-import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
-import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent, updateStudentProfile } from '../utils/api';
+import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin } from '../types';
+import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent, updateStudentProfile, toggleStudentSuperuser } from '../utils/api';
 import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
 import { getUserInitials } from './TopHeader';
 
@@ -89,11 +90,36 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   // Protección: los alumnos no pueden ver esta vista
   const hasAccess = isUserInstructor(currentStudent);
 
+  // Rol del usuario actual y su barrio asignado
+  const isSuperAdmin = isUserSuperAdmin(currentStudent);
+  const instructorWard = (currentStudent?.ward || '').trim();
+
+  // Fechas y lectura del desafío correspondientes al día de hoy
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const todayReading = useMemo(() => {
+    return READINGS_DATA.find((r) => r.calendarDate === todayStr) || READINGS_DATA[0];
+  }, [todayStr]);
+
+  const challengeDay = todayReading?.day ?? 1;
+
+  // Determinar si un estudiante ha completado la lectura del día de hoy
+  const isStudentDoneToday = (s: Student): boolean => {
+    if (typeof challengeDay === 'number' && s.completedDays.includes(challengeDay)) {
+      return true;
+    }
+    return Boolean(s.lastCompletedDate && s.lastCompletedDate === todayStr && s.completedDays.includes(challengeDay));
+  };
+
   const [students, setStudents] = useState<Student[]>([]);
+  const [selectedWard, setSelectedWard] = useState<string>('all');
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'instructors' | 'students'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'pending_today' | 'completed_today' | 'instructors' | 'students'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -188,15 +214,15 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   };
 
   const handleToggleRole = async (targetStudent: Student) => {
-    const isTargetSuper = (targetStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    const isTargetSuper = isUserSuperAdmin(targetStudent);
     if (isTargetSuper) {
-      alert('El rol del Superadministrador laconeo@gmail.com no puede ser modificado.');
+      alert('El rol de un Superadministrador no puede ser cambiado a alumno directamente. Primero revoca sus permisos de Superuser.');
       return;
     }
 
     const currentRole = targetStudent.role === 'instructor' ? 'instructor' : 'alumno';
     const nextRole: UserRole = currentRole === 'instructor' ? 'alumno' : 'instructor';
-    const actionDesc = nextRole === 'instructor' ? 'promover a INSTRUCTOR' : 'cambiar a rol ALUMNO';
+    const actionDesc = nextRole === 'instructor' ? 'promover a MAESTRO' : 'cambiar a rol ALUMNO';
 
     if (confirm(`¿Deseas ${actionDesc} a ${targetStudent.name} (${targetStudent.email})?`)) {
       try {
@@ -205,7 +231,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           prev.map((s) => (s.id === targetStudent.id ? { ...s, role: nextRole } : s))
         );
         setActionMessage(
-          `Rol de ${targetStudent.name} cambiado a ${nextRole === 'instructor' ? 'Instructor 🛡️' : 'Alumno 📖'}`
+          `Rol de ${targetStudent.name} cambiado a ${nextRole === 'instructor' ? 'Maestro 🛡️' : 'Alumno 📖'}`
         );
         setTimeout(() => setActionMessage(null), 3000);
         if (onStudentUpdated) onStudentUpdated();
@@ -217,20 +243,70 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
 
   const handleInviteWhatsApp = (s: Student) => {
     const nombre = s.firstName || s.name.split(' ')[0] || s.name;
-    const dias = s.completedDays.length;
+    const isDone = isStudentDoneToday(s);
     let mensaje = '';
-    if (dias === 0) {
-      mensaje = `📖 ¡Hola ${nombre}! Te escribo porque aún estás a tiempo de unirte al desafío «Detente, Lee, Conecta» de Seminario. ¡Solo 3 minutos al día con Jesucristo! 🔥 Ingresa aquí y comienza hoy 👇\nhttps://laconeo.github.io/dlc/`;
+    if (!isDone) {
+      mensaje = `📖 ¡Hola ${nombre}! Te escribo para recordarte la lectura de hoy en Seminario (Día ${challengeDay}${todayReading ? `: ${todayReading.character} - ${todayReading.scriptureRef}` : ''}). ¡Solo te tomará 3 minutos conectar con el Salvador hoy! 🔥👇\nhttps://laconeo.github.io/dlc/`;
     } else {
-      mensaje = `📖 ¡Hola ${nombre}! Vi que llevas ${dias} ${dias === 1 ? 'día' : 'días'} en el desafío «Detente, Lee, Conecta» de Seminario. ¡Vas muy bien! 🔥 Recuerda seguir leyendo cada día, aún tienes tiempo de completar el desafío. ¡Ánimo! 👇\nhttps://laconeo.github.io/dlc/`;
+      const dias = s.completedDays.length;
+      mensaje = `📖 ¡Hola ${nombre}! Vi que ya completaste la lectura de hoy en Seminario. ¡Llevas ${dias} ${dias === 1 ? 'día' : 'días'} completados! 🔥 Sigue así, fortaleciendo tu conexión con el Salvador. 👇\nhttps://laconeo.github.io/dlc/`;
     }
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
+  const handleToggleSuperuser = async (targetStudent: Student) => {
+    if (!isSuperAdmin) {
+      alert('Solo un Superuser tiene permisos para nombrar o revocar a otro Superuser.');
+      return;
+    }
+
+    const cleanEmail = (targetStudent.email || '').toLowerCase().trim();
+    if (cleanEmail === SUPERADMIN_EMAIL) {
+      alert('El Superadministrador principal fundador (laconeo@gmail.com) no puede ser modificado.');
+      return;
+    }
+
+    const willBeSuperuser = !isUserSuperAdmin(targetStudent);
+    const confirmMsg = willBeSuperuser
+      ? `👑 ¿Deseas convertir a ${targetStudent.name} (${targetStudent.email}) en SUPERUSER?\n\n• Tendrá acceso total a TODOS los barrios y alumnos de la estaca.\n• Podrá ver el selector global de barrios.\n• Podrá convertir a otros maestros en Superuser.`
+      : `⚠️ ¿Deseas revocar los permisos de Superuser a ${targetStudent.name}?\n\n• Volverá a tener rol de Maestro regular y solo podrá ver a los alumnos de su propio barrio.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await toggleStudentSuperuser(targetStudent.id, targetStudent.email, willBeSuperuser);
+
+      setStudents((prev) =>
+        prev.map((s) => {
+          if (s.id === targetStudent.id) {
+            return {
+              ...s,
+              isSuperuser: willBeSuperuser,
+              role: willBeSuperuser ? 'instructor' : s.role,
+            };
+          }
+          return s;
+        })
+      );
+
+      setActionMessage(
+        willBeSuperuser
+          ? `¡${targetStudent.name} ahora es Superuser 👑!`
+          : `Permisos de Superuser revocados para ${targetStudent.name}.`
+      );
+      setTimeout(() => setActionMessage(null), 3500);
+
+      if (onStudentUpdated) onStudentUpdated();
+    } catch (err: any) {
+      console.error('Error al modificar permisos de superuser:', err);
+      alert(`Error: ${err?.message || 'No se pudo actualizar el estado de superuser.'}`);
+    }
+  };
+
   const handleDeleteStudent = async (targetStudent: Student) => {
-    const isTargetSuper = (targetStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    const isTargetSuper = isUserSuperAdmin(targetStudent);
     if (isTargetSuper) {
-      alert('La cuenta de Superadministrador (laconeo@gmail.com) no puede ser eliminada.');
+      alert('Una cuenta con permisos de Superadministrador no puede ser eliminada desde aquí.');
       return;
     }
 
@@ -260,13 +336,52 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
   };
 
+  // Lista de todos los barrios únicos registrados en el sistema (ordenados alfabéticamente)
+  const availableWards = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach((s) => {
+      const w = (s.ward || '').trim();
+      if (w) set.add(w);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  }, [students]);
+
+  // Ámbito de estudiantes según el rol del usuario que consulta:
+  // - Superadmin: puede ver todos o filtrar por un barrio específico con el selector
+  // - Instructor común: ve única y exclusivamente los alumnos de su propio barrio
+  const scopedStudents = useMemo(() => {
+    if (isSuperAdmin) {
+      if (selectedWard && selectedWard !== 'all') {
+        return students.filter(
+          (s) => (s.ward || '').trim().toLowerCase() === selectedWard.toLowerCase()
+        );
+      }
+      return students;
+    }
+
+    // Para un instructor regular sin barrio configurado en su perfil
+    if (!instructorWard) {
+      return [];
+    }
+
+    // Para instructor regular: filtrado estricto por su barrio/rama
+    return students.filter(
+      (s) => (s.ward || '').trim().toLowerCase() === instructorWard.toLowerCase()
+    );
+  }, [students, isSuperAdmin, selectedWard, instructorWard]);
+
   const exportReport = () => {
+    const wardLabel = isSuperAdmin
+      ? (selectedWard === 'all' ? 'Todos los Barrios' : `Barrio: ${selectedWard}`)
+      : `Barrio: ${instructorWard || 'Sin asignar'}`;
+
     const lines = [
       'REPORTE – «DETENTE, LEE, CONECTA»',
       `Fecha: ${new Date().toLocaleDateString('es-ES')}`,
-      `Total: ${students.length} usuarios`,
+      `Unidad: ${wardLabel}`,
+      `Total: ${scopedStudents.length} usuarios`,
       '---',
-      ...students.map(
+      ...scopedStudents.map(
         (s) =>
           `• [${s.role || 'alumno'}] ${s.name} (${s.email}) | Barrio/Rama: ${s.ward || '—'} | Clase: ${s.seminaryClass || '—'} | Racha: ${s.currentStreak}d | Días: ${s.completedDays.length}/30 | Cartas: ${s.unlockedBadgeIds.length}`
       ),
@@ -280,7 +395,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = scopedStudents.filter((s) => {
     // 1. Filtro de búsqueda por texto (Barrio/Rama, nombre, apellido, correo, clase, rol)
     const q = searchQuery.toLowerCase().trim();
     if (q) {
@@ -297,18 +412,24 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     }
 
     // 2. Filtro por estado / categoría
+    if (selectedFilter === 'pending_today') return !isStudentDoneToday(s);
+    if (selectedFilter === 'completed_today') return isStudentDoneToday(s);
     if (selectedFilter === 'instructors') return isUserInstructor(s);
     if (selectedFilter === 'students') return !isUserInstructor(s);
     return true;
   });
 
-  const instructorsCount = students.filter(isUserInstructor).length;
-  const studentsOnlyCount = students.filter((s) => !isUserInstructor(s)).length;
+  const pendingTodayCount = scopedStudents.filter((s) => !isStudentDoneToday(s)).length;
+  const completedTodayCount = scopedStudents.filter(isStudentDoneToday).length;
+  const instructorsCount = scopedStudents.filter(isUserInstructor).length;
+  const studentsOnlyCount = scopedStudents.filter((s) => !isUserInstructor(s)).length;
 
   const FILTERS = [
-    { id: 'all' as const, label: `Todos (${students.length})`, color: '#3c3c3c', bg: '#3c3c3c' },
-    { id: 'instructors' as const, label: `Instructores (${instructorsCount})`, color: '#ff9600', bg: '#ff9600' },
+    { id: 'all' as const, label: `Todos (${scopedStudents.length})`, color: '#3c3c3c', bg: '#3c3c3c' },
+    { id: 'pending_today' as const, label: `⏳ Pendientes Hoy (${pendingTodayCount})`, color: '#ea580c', bg: '#ea580c' },
+    { id: 'completed_today' as const, label: `✅ Leyeron Hoy (${completedTodayCount})`, color: '#16a34a', bg: '#16a34a' },
     { id: 'students' as const, label: `Alumnos (${studentsOnlyCount})`, color: '#1cb0f6', bg: '#1cb0f6' },
+    { id: 'instructors' as const, label: `Maestros (${instructorsCount})`, color: '#ff9600', bg: '#ff9600' },
   ];
 
   if (isOpen === false) return null;
@@ -321,7 +442,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
         </div>
         <h3 className="font-display font-bold text-xl text-[#3c3c3c] mb-2">Acceso Restringido</h3>
         <p className="text-sm text-[#777777] mb-6">
-          Esta sección es exclusiva para <strong>Instructores</strong>. Tu cuenta tiene rol de <strong>Alumno</strong>.
+          Esta sección es exclusiva para <strong>Maestros</strong>. Tu cuenta tiene rol de <strong>Alumno</strong>.
         </p>
         <button
           onClick={onClose}
@@ -370,12 +491,40 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
               className="font-display font-bold text-white"
               style={{ fontSize: 18, lineHeight: 1.2 }}
             >
-              Panel del Instructor
+              Panel del Maestro
             </h2>
             <p style={{ fontSize: 12, color: '#afafaf' }}>
               Lecturas · Rachas · Cartas ganadas
             </p>
           </div>
+        </div>
+
+        {/* Badge superior derecho de rol y barrio */}
+        <div className="flex items-center gap-2">
+          {isSuperAdmin ? (
+            <span
+              className="font-display font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm"
+              style={{ background: '#222222', color: '#ffc800', border: '1.5px solid #ffc800' }}
+            >
+              <span>👑</span>
+              <span className="hidden sm:inline">Superadministrador</span>
+              <span className="sm:hidden">Superadmin</span>
+            </span>
+          ) : (
+            <span
+              className="font-display font-bold text-[11px] px-3 py-1 rounded-full flex items-center gap-1.5 text-white shadow-sm"
+              style={{
+                background: instructorWard ? 'rgba(255,255,255,0.15)' : 'rgba(239,68,68,0.25)',
+                border: `1.5px solid ${instructorWard ? 'rgba(255,255,255,0.3)' : 'rgba(239,68,68,0.5)'}`,
+              }}
+              title={instructorWard ? `Barrio asignado: ${instructorWard}` : 'Sin barrio asignado en tu perfil'}
+            >
+              <MapPin style={{ width: 13, height: 13, color: instructorWard ? '#ffc800' : '#f87171' }} />
+              <span className="truncate max-w-[140px] sm:max-w-[200px]">
+                {instructorWard || 'Sin Barrio'}
+              </span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -386,9 +535,9 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
             const challengeDay = todayReading?.day ?? '—';
 
-            // Estadísticas dinámicas según búsqueda / filtro
-            const isFiltered = searchQuery.trim().length > 0 || selectedFilter !== 'all';
-            const totalAll = students.length;
+            // Estadísticas dinámicas según barrio / búsqueda / filtro
+            const isFiltered = searchQuery.trim().length > 0 || selectedFilter !== 'all' || (isSuperAdmin && selectedWard !== 'all');
+            const totalAll = scopedStudents.length;
             const totalFiltered = filteredStudents.length;
 
             const activeFiltered = filteredStudents.filter((s) => s.completedDays.length > 0).length;
@@ -409,6 +558,93 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
 
             return (
               <>
+                {/* ── Aviso amigable si el Instructor no tiene Barrio asignado ── */}
+                {!isSuperAdmin && !instructorWard && (
+                  <div
+                    className="mx-3.5 my-3 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn"
+                    style={{ background: '#fffbeb', border: '2px solid #fde68a' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#fef3c7' }}>
+                        <MapPin style={{ width: 22, height: 22, color: '#d97706' }} />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-bold text-sm" style={{ color: '#92400e' }}>
+                          No tienes un Barrio o Rama asignado
+                        </h4>
+                        <p className="text-xs mt-0.5" style={{ color: '#b45309' }}>
+                          Para visualizar exclusivamente a los alumnos de tu unidad, asigna tu Barrio en tu perfil.
+                        </p>
+                      </div>
+                    </div>
+                    {currentStudent && (
+                      <button
+                        onClick={() => handleOpenEditProfile(currentStudent)}
+                        className="font-display font-bold text-xs px-4 py-2 rounded-xl transition-transform active:scale-95 shrink-0"
+                        style={{ background: '#ffc800', color: '#3c3c3c', border: '2px solid #e5a000' }}
+                      >
+                        Asignar mi Barrio
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Banner de Control del Día de Hoy ── */}
+                <div
+                  className="mx-3.5 mt-3 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-fadeIn"
+                  style={{
+                    background: '#ffffff',
+                    border: '2px solid #e5e5e5',
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{
+                        background: pendingTodayCount > 0 ? '#fff7ed' : '#f0fdf4',
+                        border: `2px solid ${pendingTodayCount > 0 ? '#fed7aa' : '#bbf7d0'}`,
+                      }}
+                    >
+                      <Clock style={{ width: 22, height: 22, color: pendingTodayCount > 0 ? '#ea580c' : '#16a34a' }} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-display font-bold text-sm text-[#3c3c3c]">
+                          Lectura de Hoy: Día {challengeDay} {todayReading ? `· ${todayReading.character}` : ''}
+                        </h4>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#f0f0f0] text-[#777777]">
+                          {todayReading?.dateStr || 'Hoy'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#777777] mt-0.5">
+                        {pendingTodayCount === 0 ? (
+                          <span className="text-[#16a34a] font-bold">🎉 ¡Todos los alumnos completaron el desafío de hoy!</span>
+                        ) : (
+                          <>
+                            Hay <strong className="text-[#ea580c]">{pendingTodayCount} {pendingTodayCount === 1 ? 'alumno pendiente' : 'alumnos pendientes'}</strong> de reportar hoy ({completedTodayCount} ya completaron).
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setSelectedFilter(selectedFilter === 'pending_today' ? 'all' : 'pending_today')}
+                      className="font-display font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-xs"
+                      style={{
+                        background: selectedFilter === 'pending_today' ? '#ea580c' : '#fff7ed',
+                        color: selectedFilter === 'pending_today' ? '#ffffff' : '#c2410c',
+                        border: '1.5px solid #fdba74',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>⏳</span>
+                      <span>{selectedFilter === 'pending_today' ? 'Ver Todos' : `Ver ${pendingTodayCount} Pendientes`}</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* ── Stats Row ── */}
                 <div
                   style={{
@@ -425,28 +661,28 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     iconColor="#1cb0f6"
                     iconBg="#e8f7ff"
                     label={isFiltered ? 'Alumnos (Filtro)' : 'Alumnos'}
-                    value={isFiltered ? `${totalFiltered} de ${totalAll}` : (stats?.totalStudents || totalAll)}
+                    value={isFiltered ? `${totalFiltered} de ${totalAll}` : totalAll}
                   />
                   <StatCard
-                    icon={Flame}
-                    iconColor="#ff9600"
-                    iconBg="#fff3e0"
-                    label="Racha Prom."
-                    value={`${isFiltered ? avgStreak : (stats?.averageStreak ?? avgStreak)}d`}
+                    icon={Clock}
+                    iconColor="#ea580c"
+                    iconBg="#fff7ed"
+                    label="Pendientes Hoy"
+                    value={pendingTodayCount}
                   />
                   <StatCard
-                    icon={Award}
-                    iconColor="#ffc800"
-                    iconBg="#fffbe0"
-                    label="Carta Dorada"
-                    value={isFiltered ? goldCardsCount : (stats?.completed30DaysCount ?? goldCardsCount)}
+                    icon={CheckCircle}
+                    iconColor="#16a34a"
+                    iconBg="#f0fdf4"
+                    label="Leyeron Hoy"
+                    value={completedTodayCount}
                   />
                   <StatCard
                     icon={TrendingUp}
                     iconColor="#58cc02"
                     iconBg="#e8f9d9"
                     label="Día Actual"
-                    value={`${challengeDay}/30`}
+                    value={`Día ${challengeDay}/30`}
                   />
                 </div>
 
@@ -461,6 +697,37 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     background: '#ffffff',
                   }}
                 >
+                  {/* Selector de Barrio para el Superadministrador */}
+                  {isSuperAdmin && (
+                    <div
+                      className="flex items-center gap-2 p-2.5 rounded-2xl"
+                      style={{ background: '#f0f9ff', border: '2px solid #bae6fd' }}
+                    >
+                      <MapPin style={{ width: 16, height: 16, color: '#0284c7', shrink: 0 }} />
+                      <span className="text-xs font-bold text-[#0369a1] whitespace-nowrap">
+                        Filtrar por Barrio:
+                      </span>
+                      <select
+                        value={selectedWard}
+                        onChange={(e) => setSelectedWard(e.target.value)}
+                        className="text-xs font-bold rounded-xl px-2.5 py-1.5 text-[#0369a1] outline-none flex-1 font-display cursor-pointer"
+                        style={{ background: '#ffffff', border: '1.5px solid #7dd3fc' }}
+                      >
+                        <option value="all">🌐 Todos los Barrios ({students.length})</option>
+                        {availableWards.map((w) => {
+                          const count = students.filter(
+                            (s) => (s.ward || '').trim().toLowerCase() === w.toLowerCase()
+                          ).length;
+                          return (
+                            <option key={w} value={w}>
+                              📍 {w} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Search bar */}
                   <div style={{ position: 'relative', width: '100%' }}>
                     <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: '#afafaf' }} />
@@ -647,15 +914,35 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
 
                         {/* Barras de detalle */}
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {/* Activos */}
+                          {/* Hoy: Pendientes vs Leyeron */}
+                          <div className="pb-2 border-b border-slate-100">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#ea580c' }}>
+                                ⏳ Pendientes hoy: {pendingTodayCount}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>
+                                ✅ Leyeron hoy: {completedTodayCount}
+                              </span>
+                            </div>
+                            <div style={{ height: 8, background: '#fed7aa', borderRadius: 100, overflow: 'hidden', display: 'flex' }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${totalAll > 0 ? (completedTodayCount / totalAll) * 100 : 0}%`,
+                                background: '#16a34a',
+                                transition: 'width 0.5s ease',
+                              }} />
+                            </div>
+                          </div>
+
+                          {/* General: Activos */}
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#58cc02' }}>
-                                ✅ Avanzando ({activeFiltered})
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#58cc02' }}>
+                                🚀 Con lecturas acumuladas ({activeFiltered})
                               </span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#46a302' }}>{pctActivos}%</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#46a302' }}>{pctActivos}%</span>
                             </div>
-                            <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                            <div style={{ height: 6, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
                               <div style={{
                                 height: '100%',
                                 width: `${pctActivos}%`,
@@ -666,19 +953,19 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                             </div>
                           </div>
 
-                          {/* No iniciados */}
+                          {/* General: Sin iniciar */}
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#ff9600' }}>
-                                ⏳ Sin reportar ({inactiveFiltered})
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#777777' }}>
+                                ⚪ Sin iniciar aún ({inactiveFiltered})
                               </span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#e08600' }}>{pctNoIniciado}%</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#777777' }}>{pctNoIniciado}%</span>
                             </div>
-                            <div style={{ height: 8, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
+                            <div style={{ height: 6, background: '#e5e5e5', borderRadius: 100, overflow: 'hidden' }}>
                               <div style={{
                                 height: '100%',
                                 width: `${pctNoIniciado}%`,
-                                background: '#ff9600',
+                                background: '#94a3b8',
                                 borderRadius: 100,
                                 transition: 'width 0.5s ease',
                               }} />
@@ -701,28 +988,71 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
               <p style={{ fontSize: 14, color: '#777777' }}>Cargando usuarios...</p>
             </div>
           ) : filteredStudents.length === 0 ? (
-            <div
-              className="rounded-2xl text-center"
-              style={{ padding: '36px 20px', background: '#ffffff', border: '2px solid #e5e5e5' }}
-            >
-              <Users style={{ width: 44, height: 44, color: '#afafaf', margin: '0 auto 12px' }} />
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#3c3c3c' }}>
-                {searchQuery || selectedFilter !== 'all'
-                  ? 'No se encontraron usuarios con ese criterio de búsqueda'
-                  : 'No hay más usuarios registrados aún'}
-              </p>
-              <p style={{ fontSize: 13, color: '#777777', marginTop: 6, maxWidth: 320, marginInline: 'auto' }}>
-                {searchQuery || selectedFilter !== 'all'
-                  ? 'Prueba borrando la búsqueda o cambiando el filtro seleccionado.'
-                  : 'Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.'}
-              </p>
-            </div>
+            (() => {
+              const getEmptyDetails = () => {
+                if (selectedFilter === 'pending_today') {
+                  return {
+                    title: '🎉 ¡Ningún alumno pendiente hoy!',
+                    desc: `Todos los alumnos de ${instructorWard || 'tu unidad'} han completado la lectura del Día ${challengeDay}.`,
+                  };
+                }
+                if (selectedFilter === 'completed_today') {
+                  return {
+                    title: 'Aún no hay lecturas reportadas hoy',
+                    desc: `Ningún alumno ha marcado la lectura del Día ${challengeDay} todavía hoy.`,
+                  };
+                }
+                if (searchQuery || selectedFilter !== 'all') {
+                  return {
+                    title: 'No se encontraron usuarios con ese criterio de búsqueda',
+                    desc: 'Prueba borrando la búsqueda o cambiando el filtro seleccionado.',
+                  };
+                }
+                if (!isSuperAdmin && !instructorWard) {
+                  return {
+                    title: 'Aún no tienes un Barrio asignado en tu perfil',
+                    desc: 'Haz clic en "Asignar mi Barrio" arriba para comenzar a ver a los alumnos de tu unidad.',
+                  };
+                }
+                if (!isSuperAdmin && instructorWard) {
+                  return {
+                    title: `No hay alumnos registrados en ${instructorWard} aún`,
+                    desc: `Cuando los alumnos del barrio ${instructorWard} se registren en la app, aparecerán automáticamente en tu panel.`,
+                  };
+                }
+                if (isSuperAdmin && selectedWard !== 'all') {
+                  return {
+                    title: `No hay alumnos registrados en el barrio "${selectedWard}"`,
+                    desc: 'Prueba seleccionando otro barrio o la opción de "Todos los Barrios".',
+                  };
+                }
+                return {
+                  title: 'No hay más usuarios registrados aún',
+                  desc: 'Tu panel está limpio. Cuando los alumnos reales se registren con su cuenta, aparecerán automáticamente en esta lista.',
+                };
+              };
+              const details = getEmptyDetails();
+              return (
+                <div
+                  className="rounded-2xl text-center"
+                  style={{ padding: '36px 20px', background: '#ffffff', border: '2px solid #e5e5e5' }}
+                >
+                  <Users style={{ width: 44, height: 44, color: '#afafaf', margin: '0 auto 12px' }} />
+                  <p style={{ fontSize: 16, fontWeight: 700, color: '#3c3c3c' }}>
+                    {details.title}
+                  </p>
+                  <p style={{ fontSize: 13, color: '#777777', marginTop: 6, maxWidth: 360, marginInline: 'auto' }}>
+                    {details.desc}
+                  </p>
+                </div>
+              );
+            })()
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filteredStudents.map((student) => {
                 const isExpanded = expandedStudentId === student.id;
                 const percent = Math.round((student.completedDays.length / 30) * 100);
-                const isTargetSuper = (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+                const isTargetSuper = isUserSuperAdmin(student);
                 const isTargetInstructor = isUserInstructor(student);
                 const initials = getUserInitials(student);
 
@@ -791,7 +1121,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                               }}
                             >
                               <Shield style={{ width: 10, height: 10 }} />
-                              Instructor
+                              Maestro
                             </span>
                           ) : (
                             <span
@@ -803,6 +1133,35 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                               }}
                             >
                               Alumno
+                            </span>
+                          )}
+
+                          {/* Badge de estado de HOY */}
+                          {isStudentDoneToday(student) ? (
+                            <span
+                              className="inline-flex items-center gap-1 font-bold rounded-md px-1.5 py-0.5 text-[10px]"
+                              style={{
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                border: '1px solid #86efac',
+                              }}
+                              title={`Completó la lectura de hoy (Día ${challengeDay})`}
+                            >
+                              <CheckCircle style={{ width: 10, height: 10 }} />
+                              <span>Leyó Día {challengeDay}</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1 font-bold rounded-md px-1.5 py-0.5 text-[10px]"
+                              style={{
+                                background: '#ffedd5',
+                                color: '#c2410c',
+                                border: '1px solid #fed7aa',
+                              }}
+                              title={`Pendiente de reportar la lectura de hoy (Día ${challengeDay})`}
+                            >
+                              <Clock style={{ width: 10, height: 10 }} />
+                              <span>Pendiente Día {challengeDay}</span>
                             </span>
                           )}
                         </div>
@@ -900,7 +1259,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                                 color: isTargetSuper ? '#ffc800' : isTargetInstructor ? '#ffc800' : '#555555',
                               }}
                             >
-                              {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Instructor 🛡️' : 'Alumno 📖'}
+                              {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Maestro 🛡️' : 'Alumno 📖'}
                             </span>
                           </div>
 
@@ -1105,7 +1464,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                                 }}
                               >
                                 <Shield style={{ width: 16, height: 16, color: '#ffc800' }} />
-                                <span>{isTargetInstructor ? 'Quitar Instructor (Hacer Alumno)' : 'Convertir en Instructor'}</span>
+                                <span>{isTargetInstructor ? 'Quitar Maestro (Hacer Alumno)' : 'Convertir en Maestro'}</span>
                               </button>
                             )}
 
@@ -1148,6 +1507,42 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                               >
                                 <Trash2 style={{ width: 15, height: 15 }} />
                                 <span>{deletingId === student.id ? 'Borrando...' : 'Borrar Usuario'}</span>
+                              </button>
+                            )}
+
+                            {/* 5. Convertir a Superuser: solo visible para un Superuser y aplicable a Maestros */}
+                            {isSuperAdmin && isTargetInstructor && (
+                              <button
+                                id={`toggle-superuser-btn-${student.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleSuperuser(student);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs col-span-1 sm:col-span-2"
+                                style={{
+                                  background: isTargetSuper ? '#222222' : '#ffc800',
+                                  borderBottom: isTargetSuper ? '3px solid #000000' : '3px solid #d99b00',
+                                  color: isTargetSuper ? '#ffc800' : '#222222',
+                                  border: isTargetSuper ? '1.5px solid #ffc800' : 'none',
+                                  cursor: (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL ? 'default' : 'pointer',
+                                }}
+                                disabled={(student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL}
+                                title={
+                                  (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL
+                                    ? 'Superadmin Fundador'
+                                    : isTargetSuper
+                                    ? 'Revocar permisos de Superuser'
+                                    : 'Convertir a este Maestro en Superuser'
+                                }
+                              >
+                                <Crown style={{ width: 16, height: 16, color: isTargetSuper ? '#ffc800' : '#222222' }} />
+                                <span>
+                                  {isTargetSuper
+                                    ? (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL
+                                      ? 'Superadmin Principal 👑'
+                                      : 'Quitar Superuser (Volver a Maestro regular)'
+                                    : '👑 Convertir a Maestro en Superuser'}
+                                </span>
                               </button>
                             )}
                           </div>

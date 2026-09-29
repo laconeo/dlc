@@ -234,7 +234,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
             <span className="text-xs font-bold text-purple-900 leading-tight">
               {previewAsStudent
                 ? 'Vista de Alumno: Solo se ven las cartas de los días leídos.'
-                : 'Modo Instructor: Puedes subir y editar cartas para cada día.'}
+                : 'Modo Maestro: Puedes subir y editar cartas para cada día.'}
             </span>
           </div>
           <button
@@ -247,7 +247,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
               cursor: 'pointer',
             }}
           >
-            {previewAsStudent ? 'Ver como Instructor' : 'Ver como Alumno'}
+            {previewAsStudent ? 'Ver como Maestro' : 'Ver como Alumno'}
           </button>
         </div>
       )}

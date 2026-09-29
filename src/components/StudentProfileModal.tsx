@@ -16,7 +16,7 @@ import {
   AlertCircle,
   School,
 } from 'lucide-react';
-import { Student, isUserInstructor, SUPERADMIN_EMAIL } from '../types';
+import { Student, isUserInstructor, isUserSuperAdmin, SUPERADMIN_EMAIL } from '../types';
 import { SPECIAL_BADGES } from '../data/readings';
 import { updateStudentProfile } from '../utils/api';
 import { getUserInitials } from './TopHeader';
@@ -51,7 +51,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   if (isOpen === false) return null;
 
   const isInstructor = isUserInstructor(student);
-  const isSuperAdmin = (student?.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+  const isSuperAdmin = isUserSuperAdmin(student);
   const completedDays = student?.completedDays || [];
   const currentStreak = student?.currentStreak || 0;
   const highestStreak = student?.highestStreak || 0;
@@ -239,7 +239,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               }}
             >
               <Shield style={{ width: 13, height: 13 }} />
-              {isSuperAdmin ? 'Superadministrador' : isInstructor ? 'Instructor' : 'Alumno'}
+              {isSuperAdmin ? 'Superadministrador' : isInstructor ? 'Maestro' : 'Alumno'}
             </span>
 
             {student?.ward ? (
@@ -424,7 +424,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   ¿A qué barrio o rama perteneces?
                 </p>
                 <p className="text-[11px] text-[#c2410c] mt-0.5">
-                  Completa tu barrio y clase para que tus instructores te identifiquen.
+                  Completa tu barrio y clase para que tus maestros te identifiquen.
                 </p>
               </div>
               <button
@@ -577,7 +577,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 }}
               >
                 <Shield style={{ width: 20, height: 20 }} />
-                <span>Panel de Instructor</span>
+                <span>Panel del Maestro</span>
               </button>
             )}
 

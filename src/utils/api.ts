@@ -8,7 +8,7 @@
  */
 
 import { supabase } from './supabase';
-import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
+import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin } from '../types';
 
 // ── Tipos auxiliares ──────────────────────────────────────────────────────────
 
@@ -25,6 +25,21 @@ export interface RegisterParams {
 
 const LOCAL_STORAGE_KEY = 'detente_lee_conecta_current_student';
 const LOCAL_INSTRUCTOR_STUDENTS_KEY = 'detente_lee_conecta_instructor_students';
+const LOCAL_SUPERUSERS_KEY = 'detente_lee_conecta_superusers';
+
+export function getLocalSuperuserEmails(): string[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_SUPERUSERS_KEY);
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    const normalized = list.map((e) => e.toLowerCase().trim());
+    if (!normalized.includes(SUPERADMIN_EMAIL)) {
+      normalized.push(SUPERADMIN_EMAIL);
+    }
+    return normalized;
+  } catch {
+    return [SUPERADMIN_EMAIL];
+  }
+}
 
 export function getLocalStudent(): Student | null {
   try {
@@ -56,11 +71,11 @@ export function clearLocalStudent(): void {
 /**
  * Convierte una fila de `students_full` (vista Supabase) al tipo Student de TS.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToStudent(row: any): Student {
+function rowToStudent(row: any, superuserEmails: string[] = []): Student {
   const cleanEmail = (row.email ?? '').toLowerCase().trim();
-  const isSuperAdmin = cleanEmail === SUPERADMIN_EMAIL;
-  const role: UserRole = isSuperAdmin ? 'instructor' : (row.role === 'instructor' ? 'instructor' : 'alumno');
+  const superList = superuserEmails.length > 0 ? superuserEmails : getLocalSuperuserEmails();
+  const isSuper = cleanEmail === SUPERADMIN_EMAIL || superList.includes(cleanEmail) || Boolean(row.is_superuser);
+  const role: UserRole = isSuper ? 'instructor' : (row.role === 'instructor' ? 'instructor' : 'alumno');
 
   return {
     id: row.id,
@@ -69,6 +84,7 @@ function rowToStudent(row: any): Student {
     lastName: row.last_name,
     name: row.name ?? `${row.first_name} ${row.last_name}`,
     role,
+    isSuperuser: isSuper,
     ward: row.ward ?? '',
     seminaryClass: row.seminary_class ?? 'Seminario - Antiguo Testamento',
     avatarSeed: row.avatar_seed ?? row.first_name,
@@ -767,8 +783,23 @@ export async function fetchInstructorData(): Promise<{ students: Student[]; stat
 
     if (error) throw new Error(error.message);
 
+    // 2. Obtener lista de superusuarios registrados (Supabase + localStorage)
+    let superuserEmails = getLocalSuperuserEmails();
+    try {
+      const { data: superRows } = await supabase.from('superusers').select('email, user_id');
+      if (superRows && superRows.length > 0) {
+        const fromDb = superRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean);
+        superuserEmails = Array.from(new Set([...superuserEmails, ...fromDb]));
+        try {
+          localStorage.setItem(LOCAL_SUPERUSERS_KEY, JSON.stringify(superuserEmails));
+        } catch {}
+      }
+    } catch {
+      // Fallback local silencioso si la tabla aún no existe en Supabase
+    }
+
     // 3. Filtrar estrictamente solo estudiantes reales (descartar IDs o correos de prueba)
-    const rawStudents = (rows ?? []).map(rowToStudent);
+    const rawStudents = (rows ?? []).map((r) => rowToStudent(r, superuserEmails));
     const students = rawStudents.filter((s) => {
       const email = (s.email || '').toLowerCase().trim();
       const id = (s.id || '').trim();
@@ -981,3 +1012,58 @@ function fetchInstructorDataLocal(): { students: Student[]; stats: InstructorSta
     },
   };
 }
+
+// ── SUPERUSER MANAGEMENT ──────────────────────────────────────────────────────
+
+export async function toggleStudentSuperuser(
+  studentId: string,
+  email: string,
+  makeSuperuser: boolean
+): Promise<void> {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  if (cleanEmail === SUPERADMIN_EMAIL && !makeSuperuser) {
+    throw new Error('El Superadministrador principal fundador (laconeo@gmail.com) no puede ser modificado.');
+  }
+
+  // 1. Sincronizar en Supabase
+  try {
+    if (makeSuperuser) {
+      await supabase.from('superusers').upsert(
+        { user_id: studentId, email: cleanEmail },
+        { onConflict: 'user_id' }
+      );
+      await supabase.from('instructors').upsert(
+        { user_id: studentId },
+        { onConflict: 'user_id' }
+      );
+      await supabase.from('students').update({ role: 'instructor' }).eq('id', studentId);
+    } else {
+      await supabase.from('superusers').delete().eq('user_id', studentId);
+    }
+  } catch (err) {
+    console.warn('Supabase toggleStudentSuperuser fallback:', err);
+  }
+
+  // 2. Sincronizar en localStorage
+  try {
+    const list = getLocalSuperuserEmails();
+    let updatedList: string[];
+    if (makeSuperuser) {
+      updatedList = Array.from(new Set([...list, cleanEmail]));
+    } else {
+      updatedList = list.filter((e) => e !== cleanEmail);
+      if (!updatedList.includes(SUPERADMIN_EMAIL)) updatedList.push(SUPERADMIN_EMAIL);
+    }
+    localStorage.setItem(LOCAL_SUPERUSERS_KEY, JSON.stringify(updatedList));
+
+    const current = getLocalStudent();
+    if (current && (current.id === studentId || (current.email || '').toLowerCase().trim() === cleanEmail)) {
+      current.isSuperuser = makeSuperuser;
+      if (makeSuperuser) current.role = 'instructor';
+      saveLocalStudent(current);
+    }
+  } catch (localErr) {
+    console.warn('Error al guardar superuser en localStorage:', localErr);
+  }
+}
+

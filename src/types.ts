@@ -35,10 +35,16 @@ export type UserRole = 'alumno' | 'instructor';
 
 export const SUPERADMIN_EMAIL = 'laconeo@gmail.com';
 
-export function isUserInstructor(student: Student | null | undefined): boolean {
+export function isUserSuperAdmin(student: Student | null | undefined): boolean {
   if (!student) return false;
   const email = (student.email || '').toLowerCase().trim();
   if (email === SUPERADMIN_EMAIL) return true;
+  return Boolean(student.isSuperuser);
+}
+
+export function isUserInstructor(student: Student | null | undefined): boolean {
+  if (!student) return false;
+  if (isUserSuperAdmin(student)) return true;
   return student.role === 'instructor';
 }
 
@@ -47,6 +53,7 @@ export interface Student {
   email: string;
   name: string;
   role?: UserRole;        // 'alumno' (default) o 'instructor'
+  isSuperuser?: boolean;  // Permisos de Superuser / Acceso global a todos los barrios
   firstName?: string;
   lastName?: string;
   password?: string;

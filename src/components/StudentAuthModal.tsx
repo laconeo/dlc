@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, User, BookOpen, Lock, Eye, EyeOff, Sparkles, ArrowRight, ArrowLeft, MapPin, CheckCircle2, Flame, Shield, KeyRound } from 'lucide-react';
-import { Student, SUPERADMIN_EMAIL, isUserInstructor } from '../types';
+import { Student, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin } from '../types';
 import { loginStudent, registerStudent, requestPasswordReset, updateUserPassword } from '../utils/api';
 import { supabase } from '../utils/supabase';
 
@@ -276,7 +276,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
 
   /* ── 🌟 PANTALLA DE BIENVENIDA CELEBRATORIA ── */
   if (registeredStudent) {
-    const isSuper = (registeredStudent.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL;
+    const isSuper = isUserSuperAdmin(registeredStudent);
     const isInst = isUserInstructor(registeredStudent);
 
     return (
@@ -325,7 +325,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               {isSuper ? (
                 <><span>👑</span><span>Superadministrador</span></>
               ) : isInst ? (
-                <><Shield className="w-3.5 h-3.5 text-[#ffc800]" /><span>Instructor</span></>
+                <><Shield className="w-3.5 h-3.5 text-[#ffc800]" /><span>Maestro</span></>
               ) : (
                 <><CheckCircle2 className="w-3.5 h-3.5 text-[#46a302]" /><span>Alumno de Seminario</span></>
               )}

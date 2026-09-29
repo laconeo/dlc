@@ -12,7 +12,7 @@ export interface ScripturePassage {
 
 export const SCRIPTURE_HEADERS: Record<number, { book: string; subtitle: string; testament: string }> = {
   1: { book: 'JOSUÉ', subtitle: 'Capítulo 1:5–11', testament: 'Antiguo Testamento' },
-  2: { book: 'GÉNESIS', subtitle: 'Capítulo 39:2–3 · Capítulo 45:4–5', testament: 'Antiguo Testamento' },
+  2: { book: 'GÉNESIS', subtitle: 'Capítulo 45:5–8', testament: 'Antiguo Testamento' },
   3: { book: 'LEVÍTICO', subtitle: 'Capítulo 19:18, 34', testament: 'Antiguo Testamento' },
   4: { book: 'JUECES', subtitle: 'Capítulo 4:4–9, 14', testament: 'Antiguo Testamento' },
   5: { book: 'JUECES', subtitle: 'Capítulo 6:12–16 · Capítulo 7:7', testament: 'Antiguo Testamento' },
@@ -61,13 +61,13 @@ export const SCRIPTURE_PASSAGES: Record<number, ScripturePassage> = {
   },
   2: {
     day: 2,
-    reference: 'Génesis 39:2–3; 45:4–5',
-    contextSummary: 'José en Egipto es bendecido por su rectitud en la casa de Potifar, y años después perdona con amor redentor a sus hermanos reconociendo la mano providencial de Dios.',
+    reference: 'Génesis 45:5–8',
+    contextSummary: 'José consuela y perdona a sus hermanos tras darse a conocer ante ellos, testificando que Dios lo envió delante de ellos para preservación de vida y para darles gran liberación.',
     verses: [
-      { verseNumber: '39:2', text: 'Mas Jehová estaba con José, y fue varón próspero; y estaba en la casa de su amo el egipcio.' },
-      { verseNumber: '39:3', text: 'Y vio su amo que Jehová estaba con él, y que todo lo que él hacía, Jehová lo hacía prosperar en su mano.' },
-      { verseNumber: '45:4', text: 'Entonces dijo José a sus hermanos: Acercaos ahora a mí. Y ellos se acercaron. Y él dijo: Yo soy José, vuestro hermano, el que vendisteis para Egipto.' },
-      { verseNumber: '45:5', text: 'Ahora pues, no os entristezcáis ni os pese haberme vendido acá, porque para preservación de vida me envió Dios delante de vosotros.' },
+      { verseNumber: 5, text: 'Ahora pues, no os entristezcáis ni os pese haberme vendido acá, porque para preservación de vida me envió Dios delante de vosotros.' },
+      { verseNumber: 6, text: 'Pues ya ha habido dos años de hambre en medio de la tierra, y aún quedan cinco años en que no habrá arada ni siega.' },
+      { verseNumber: 7, text: 'Y Dios me envió delante de vosotros para preservaros posteridad sobre la tierra, y para daros vida por medio de gran liberación.' },
+      { verseNumber: 8, text: 'Así pues, no me enviasteis acá vosotros, sino Dios, que me ha puesto por padre de Faraón, y por señor de toda su casa y por gobernador en toda la tierra de Egipto.' },
     ],
   },
   3: {

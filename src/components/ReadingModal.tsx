@@ -686,7 +686,7 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
                 <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200">
                   <span className="text-xs font-bold text-sky-800 flex items-center gap-1.5">
                     <Shield style={{ width: 14, height: 14, color: '#0284c7' }} />
-                    Modo Instructor: {isFuture ? `Lectura del ${reading.dateStr} (adelantada)` : `Lectura del ${reading.dateStr} (pasada)`}
+                    Modo Maestro: {isFuture ? `Lectura del ${reading.dateStr} (adelantada)` : `Lectura del ${reading.dateStr} (pasada)`}
                   </span>
                   <span className="text-[11px] font-bold text-sky-600 uppercase">Habilitado</span>
                 </div>

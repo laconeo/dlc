@@ -82,10 +82,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               onClick={onOpenAdmin}
               className="flex items-center gap-1.5 px-3 rounded-xl bg-[#3c3c3c] text-white active:scale-95 transition-transform shadow-sm"
               style={{ height: 40, fontSize: 13, fontWeight: 700 }}
-              title="Panel de Instructor"
+              title="Panel del Maestro"
             >
               <Shield className="w-4 h-4 text-[#ffc800]" />
-              <span className="font-display">Instructor</span>
+              <span className="font-display">Maestro</span>
             </button>
           )}
 

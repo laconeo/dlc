@@ -11,7 +11,7 @@ export interface ScripturePassage {
 }
 
 export const SCRIPTURE_HEADERS: Record<number, { book: string; subtitle: string; testament: string }> = {
-  1: { book: 'JOSUÉ', subtitle: 'Capítulo 1:5–9', testament: 'Antiguo Testamento' },
+  1: { book: 'JOSUÉ', subtitle: 'Capítulo 1:5–11', testament: 'Antiguo Testamento' },
   2: { book: 'GÉNESIS', subtitle: 'Capítulo 39:2–3 · Capítulo 45:4–5', testament: 'Antiguo Testamento' },
   3: { book: 'LEVÍTICO', subtitle: 'Capítulo 19:18, 34', testament: 'Antiguo Testamento' },
   4: { book: 'JUECES', subtitle: 'Capítulo 4:4–9, 14', testament: 'Antiguo Testamento' },
@@ -38,7 +38,7 @@ export const SCRIPTURE_HEADERS: Record<number, { book: string; subtitle: string;
   25: { book: 'GÉNESIS', subtitle: 'Capítulo 24:15–20', testament: 'Antiguo Testamento' },
   26: { book: 'DANIEL', subtitle: 'Capítulo 1:8 · Capítulo 6:10, 20–22', testament: 'Antiguo Testamento' },
   27: { book: 'ÉXODO', subtitle: 'Capítulo 18:17–24', testament: 'Antiguo Testamento' },
-  28: { book: '2 REYES', subtitle: 'Capítulo 5:2–4', testament: 'Antiguo Testamento' },
+  28: { book: '2 REYES', subtitle: 'Capítulo 5:1–3, 14–15', testament: 'Antiguo Testamento' },
   29: { book: '1 SAMUEL', subtitle: 'Capítulo 3:8–10', testament: 'Antiguo Testamento' },
   30: { book: 'ÉXODO', subtitle: 'Capítulo 17:10–13', testament: 'Antiguo Testamento' },
   31: { book: 'TESTIMONIO DE CRISTO', subtitle: 'Juan 14:6 · Isaías 53:3–5 · 2 Nefi 25:26', testament: 'Escrituras Sagradas' },
@@ -47,14 +47,16 @@ export const SCRIPTURE_HEADERS: Record<number, { book: string; subtitle: string;
 export const SCRIPTURE_PASSAGES: Record<number, ScripturePassage> = {
   1: {
     day: 1,
-    reference: 'Josué 1:5–9',
-    contextSummary: 'Tras la muerte de Moisés, Jehová llama a Josué a liderar a Israel hacia la tierra prometida, prometiéndole Su compañía constante si permanece fiel y valiente.',
+    reference: 'Josué 1:5–11',
+    contextSummary: 'Tras la muerte de Moisés, Jehová llama a Josué a liderar a Israel hacia la tierra prometida, prometiéndole Su compañía constante si permanece fiel y valiente, y Josué manda al pueblo a prepararse para cruzar el Jordán.',
     verses: [
       { verseNumber: 5, text: 'Nadie te podrá hacer frente en todos los días de tu vida; como estuve con Moisés, estaré contigo; no te dejaré ni te desampararé.' },
       { verseNumber: 6, text: 'Esfuérzate y sé valiente, porque tú repartirás a este pueblo por heredad la tierra de la cual juré a sus padres que la daría a ellos.' },
       { verseNumber: 7, text: 'Solamente esfuérzate y sé muy valiente, para cuidar de hacer conforme a toda la ley que mi siervo Moisés te mandó; no te apartes de ella ni a diestra ni a siniestra, para que prosperes en todas las cosas que emprendas.' },
       { verseNumber: 8, text: 'Nunca se apartará de tu boca este libro de la ley, sino que de día y de noche meditarás en él, para que guardes y hagas conforme a todo lo que en él está escrito; porque entonces harás prosperar tu camino y todo te saldrá bien.' },
       { verseNumber: 9, text: 'Mira que te mando que te esfuerces y seas valiente; no temas ni desmayes, porque Jehová tu Dios estará contigo dondequiera que vayas.' },
+      { verseNumber: 10, text: 'Y Josué mandó a los oficiales del pueblo, diciendo:' },
+      { verseNumber: 11, text: 'Pasad por en medio del campamento y mandad al pueblo, diciendo: Preparaos provisiones, porque dentro de tres días pasaréis este Jordán para entrar a poseer la tierra que Jehová vuestro Dios os da para que la poseáis.' },
     ],
   },
   2: {
@@ -354,12 +356,14 @@ export const SCRIPTURE_PASSAGES: Record<number, ScripturePassage> = {
   },
   28: {
     day: 28,
-    reference: '2 Reyes 5:2–4',
-    contextSummary: 'Una joven israelita cautiva testifica con fe sobre el profeta de Dios a la esposa de Naamán, guiándolo hacia su sanación y conversión.',
+    reference: '2 Reyes 5:1–3, 14–15',
+    contextSummary: 'Una joven israelita cautiva testifica con fe sobre el profeta de Dios; Naamán obedece la palabra del profeta, es sanado milagrosamente de su lepra y testifica que no hay Dios en toda la tierra sino en Israel.',
     verses: [
+      { verseNumber: 1, text: 'Naamán, general del ejército del rey de Siria, era un hombre importante delante de su señor y tenido en alta estima, porque por medio de él había dado Jehová salvación a Siria. Era también este hombre valeroso en gran manera, pero leproso.' },
       { verseNumber: 2, text: 'Y de Siria habían salido bandas armadas y habían llevado cautiva de la tierra de Israel a una muchacha, la cual servía a la esposa de Naamán.' },
       { verseNumber: 3, text: 'Esta dijo a su señora: Si mi señor rogase al profeta que está en Samaria, él lo sanaría de su lepra.' },
-      { verseNumber: 4, text: 'Y entrando Naamán a su señor, se lo declaró, diciendo: Así y así ha dicho la muchacha que es de la tierra de Israel.' },
+      { verseNumber: 14, text: 'Él entonces descendió y se zambulló siete veces en el Jordán, conforme a la palabra del varón de Dios; y su carne se volvió como la carne de un niño, y quedó limpio.' },
+      { verseNumber: 15, text: 'Y regresó al varón de Dios, él y toda su compañía, y se puso delante de él y dijo: He aquí, ahora reconozco que no hay Dios en toda la tierra, sino en Israel. Te ruego que recibas un presente de tu siervo.' },
     ],
   },
   29: {

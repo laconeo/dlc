@@ -383,7 +383,7 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               </span>
             </div>
             <p className="text-xs text-[#c2410c]">
-              Lectura de hoy: <strong>Josué 1:1-9</strong> («Esfuérzate y sé valiente»). Al acumular 7 días seguidos desbloquearás tu primera carta especial (Abraham).
+              Lectura de hoy: <strong>Josué 1:5-11</strong> («Esfuérzate y sé valiente»). Al acumular 7 días seguidos desbloquearás tu primera carta especial (Abraham).
             </p>
           </div>
         </div>

@@ -432,7 +432,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     { id: 'instructors' as const, label: `Maestros (${instructorsCount})`, color: '#ff9600', bg: '#ff9600' },
   ];
 
-  if (isOpen === false) return null;
+  if (!isOpen) return null;
 
   if (!hasAccess) {
     return (
@@ -703,7 +703,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                       className="flex items-center gap-2 p-2.5 rounded-2xl"
                       style={{ background: '#f0f9ff', border: '2px solid #bae6fd' }}
                     >
-                      <MapPin style={{ width: 16, height: 16, color: '#0284c7', shrink: 0 }} />
+                      <MapPin style={{ width: 16, height: 16, color: '#0284c7', flexShrink: 0 }} />
                       <span className="text-xs font-bold text-[#0369a1] whitespace-nowrap">
                         Filtrar por Barrio:
                       </span>

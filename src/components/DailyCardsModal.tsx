@@ -221,7 +221,7 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
       if (activePreviewDay === day) {
         setActivePreviewDay(null);
       }
-      setFeedbackMsg(`Carta del Día ${day} restablecida a placeholder.`);
+      setFeedbackMsg({ text: `Carta del Día ${day} restablecida a placeholder.` });
       setTimeout(() => setFeedbackMsg(null), 3000);
     } catch (err) {
       console.error('Error al eliminar carta:', err);

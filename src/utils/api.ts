@@ -462,12 +462,13 @@ export async function updateUserPassword(newPassword: string): Promise<Student> 
       email: cleanEmail,
       ward: meta.ward || '',
       seminaryClass: meta.seminary_class || '',
-      streak: 0,
-      completedDays: 0,
-      totalReadings: 0,
-      readings: [],
-      lastCompletedDate: null,
-      earnedBadges: [],
+      completedDays: [],
+      currentStreak: 0,
+      highestStreak: 0,
+      unlockedBadgeIds: [],
+      lastCompletedDate: undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 

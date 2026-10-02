@@ -14,6 +14,7 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Mail,
   Sparkles,
   UserCheck,
@@ -122,7 +123,11 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'pending_today' | 'completed_today' | 'instructors' | 'students'>('all');
-  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [selectedStudentDetailId, setSelectedStudentDetailId] = useState<string | null>(null);
+  const selectedStudentDetail = useMemo(
+    () => students.find((s) => s.id === selectedStudentDetailId) || null,
+    [students, selectedStudentDetailId]
+  );
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -140,17 +145,21 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     setEditClass(s.seminaryClass || 'Seminario - Antiguo Testamento');
   };
 
-  // Cerrar modal de edición con la tecla Escape
+  // Cerrar modales con la tecla Escape
   useEffect(() => {
-    if (!editingStudent) return;
+    if (!selectedStudentDetailId && !editingStudent) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setEditingStudent(null);
+        if (editingStudent) {
+          setEditingStudent(null);
+        } else if (selectedStudentDetailId) {
+          setSelectedStudentDetailId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingStudent]);
+  }, [selectedStudentDetailId, editingStudent]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1069,7 +1078,6 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filteredStudents.map((student) => {
-                const isExpanded = expandedStudentId === student.id;
                 const percent = Math.round((student.completedDays.length / 30) * 100);
                 const isTargetSuper = isUserSuperAdmin(student);
                 const isTargetInstructor = isUserInstructor(student);
@@ -1078,14 +1086,15 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                 return (
                   <div
                     key={student.id}
-                    className="rounded-2xl overflow-hidden"
+                    className="rounded-2xl overflow-hidden hover:border-sky-300 transition-colors"
                     style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
                   >
                     {/* Row summary */}
                     <div
-                      onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
+                      onClick={() => setSelectedStudentDetailId(student.id)}
                       className="flex items-center gap-3 cursor-pointer"
                       style={{ padding: '12px 14px' }}
+                      title="Haz clic para ver detalles y gestionar al alumno"
                     >
                       {/* Avatar with 2 initials */}
                       <div
@@ -1262,387 +1271,14 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           </div>
                         </div>
 
-                        <button
-                          style={{ color: '#afafaf', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
-                          aria-label={isExpanded ? 'Contraer' : 'Expandir'}
+                        <div
+                          style={{ color: '#afafaf', display: 'flex', alignItems: 'center' }}
+                          title="Ver detalles del alumno"
                         >
-                          {isExpanded
-                            ? <ChevronUp style={{ width: 20, height: 20 }} />
-                            : <ChevronDown style={{ width: 20, height: 20 }} />}
-                        </button>
+                          <ChevronRight style={{ width: 20, height: 20 }} />
+                        </div>
                       </div>
                     </div>
-
-                    {/* Expanded detail */}
-                    {isExpanded && (
-                      <div
-                        className="animate-fadeIn"
-                        style={{
-                          padding: '14px',
-                          borderTop: '2px solid #f0f0f0',
-                          background: '#f8fafc',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 12,
-                        }}
-                      >
-                        {/* 1. 📍 Información del Barrio y Alumno */}
-                        <div
-                          className="rounded-2xl p-3.5"
-                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
-                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                              <MapPin style={{ width: 14, height: 14, color: '#0369a1' }} />
-                              Información del Barrio
-                            </span>
-                            <span
-                              className="font-display font-bold text-[11px] rounded-full px-2.5 py-0.5"
-                              style={{
-                                background: isTargetSuper ? '#222222' : isTargetInstructor ? '#3c3c3c' : '#f0f0f0',
-                                color: isTargetSuper ? '#ffc800' : isTargetInstructor ? '#ffc800' : '#555555',
-                              }}
-                            >
-                              {isTargetSuper ? 'Superadministrador 👑' : isTargetInstructor ? 'Maestro 🛡️' : 'Alumno 📖'}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Barrio / Rama</p>
-                              <p className="font-bold text-slate-800 text-sm mt-0.5">
-                                {student.ward || <span className="text-slate-400 font-normal italic">Sin barrio registrado</span>}
-                              </p>
-                            </div>
-
-                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Clase de Seminario</p>
-                              <p className="font-bold text-slate-800 text-sm mt-0.5 truncate">
-                                {student.seminaryClass || 'Seminario - Antiguo Testamento'}
-                              </p>
-                            </div>
-
-                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</p>
-                              <p className="font-semibold text-slate-700 truncate mt-0.5">
-                                {student.email}
-                              </p>
-                            </div>
-
-                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Última Lectura Registrada</p>
-                              <p className="font-semibold text-slate-700 mt-0.5">
-                                {student.lastCompletedDate || 'Aún no ha completado lecturas'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 2. 🏆 Cartas Desbloqueadas */}
-                        <div
-                          className="rounded-2xl p-3.5"
-                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                              <Award style={{ width: 15, height: 15, color: '#ffc800' }} />
-                              Cartas Desbloqueadas ({student.unlockedBadgeIds.length})
-                            </span>
-                            <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-                              Premios y Patriarcas
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {Object.values(SPECIAL_BADGES).map((badge) => {
-                              const won = student.unlockedBadgeIds.includes(badge.id);
-                              return (
-                                <div
-                                  key={badge.id}
-                                  className="font-bold flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs"
-                                  style={{
-                                    background: won
-                                      ? (badge.tier === 'gold' ? '#fffbe0' : '#f5eeff')
-                                      : '#f8fafc',
-                                    border: `2px solid ${won ? (badge.tier === 'gold' ? '#ffc800' : '#a560f0') : '#e2e8f0'}`,
-                                    color: won ? '#3c3c3c' : '#94a3b8',
-                                  }}
-                                >
-                                  <span>{won ? '✓' : '🔒'}</span>
-                                  <span>{badge.patriarch}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* 3. 🔥 Días de Racha de Lectura */}
-                        <div
-                          className="rounded-2xl p-3.5"
-                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
-                        >
-                          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 flex-wrap gap-2">
-                            <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                              <Flame style={{ width: 15, height: 15, color: '#ff9600' }} />
-                              Días de Racha de Lectura
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-display font-extrabold text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-lg">
-                                🔥 Racha: {student.currentStreak} días
-                              </span>
-                              <span className="font-display font-bold text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
-                                ⭐ Máx: {student.highestStreak}d
-                              </span>
-                              <span className="font-display font-bold text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
-                                📖 {student.completedDays.length}/30 días ({percent}%)
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Asistencia directa de lectura de hoy en clase / papel */}
-                          <div
-                            className="p-3 rounded-xl flex items-center justify-between gap-3 mb-3"
-                            style={{
-                              background: isStudentDoneToday(student) ? '#f0fdf4' : '#eff6ff',
-                              border: `2px solid ${isStudentDoneToday(student) ? '#86efac' : '#93c5fd'}`,
-                            }}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-display font-bold text-xs text-[#3c3c3c]">
-                                Lectura de Hoy (Día {challengeDay}{todayReading ? `: ${todayReading.character}` : ''})
-                              </p>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                {isStudentDoneToday(student)
-                                  ? '✓ Marcado como leído (alumno o maestro en clase).'
-                                  : '¿El alumno leyó en clase o en papel sin celular? Márcalo aquí:'}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (typeof challengeDay === 'number') {
-                                  handleToggleDayForStudent(student.id, challengeDay);
-                                }
-                              }}
-                              className="font-display font-bold text-xs px-3 py-2 rounded-xl transition-all active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                              style={{
-                                background: isStudentDoneToday(student) ? '#dcfce7' : '#1cb0f6',
-                                color: isStudentDoneToday(student) ? '#15803d' : '#ffffff',
-                                border: `2px solid ${isStudentDoneToday(student) ? '#86efac' : '#1899d6'}`,
-                              }}
-                            >
-                              {isStudentDoneToday(student) ? (
-                                <>
-                                  <CheckCircle style={{ width: 14, height: 14 }} />
-                                  <span>Leído ✓ (Desmarcar)</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Check style={{ width: 14, height: 14 }} strokeWidth={3} />
-                                  <span>Marcar Leído en Clase</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-
-                          <div className="mb-2">
-                            <p className="text-[11px] font-bold text-slate-500 mb-1.5">
-                              Matriz de Lecturas (toca cualquier día para marcar o desmarcar si leyó en papel):
-                            </p>
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(7, 1fr)',
-                                gap: 5,
-                              }}
-                            >
-                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
-                                const done = student.completedDays.includes(day);
-                                const isTodayDay = day === challengeDay;
-                                return (
-                                  <button
-                                    key={day}
-                                    type="button"
-                                    onClick={() => handleToggleDayForStudent(student.id, day)}
-                                    title={`Día ${day}${isTodayDay ? ' (HOY)' : ''}: ${done ? 'Completado' : 'Pendiente'}`}
-                                    className="font-display font-bold flex items-center justify-center transition-all active:scale-95"
-                                    style={{
-                                      height: 32,
-                                      borderRadius: 8,
-                                      fontSize: 12,
-                                      border: isTodayDay ? '2px solid #ffc800' : 'none',
-                                      cursor: 'pointer',
-                                      background: done ? '#58cc02' : '#e5e5e5',
-                                      color: done ? '#ffffff' : '#777777',
-                                      boxShadow: isTodayDay ? '0 0 0 2px rgba(255,200,0,0.4)' : 'none',
-                                    }}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Student notes */}
-                          {student.notes && Object.keys(student.notes).length > 0 && (
-                            <div className="mt-2.5 pt-2 border-t border-slate-100">
-                              <p className="font-bold text-xs text-slate-600 mb-1.5">
-                                Reflexiones del alumno ({Object.keys(student.notes).length}):
-                              </p>
-                              <div
-                                className="no-scrollbar flex flex-col gap-1.5 max-h-28 overflow-y-auto"
-                              >
-                                {Object.entries(student.notes).map(([d, txt]) => (
-                                  <div
-                                    key={d}
-                                    className="rounded-xl p-2 text-xs bg-slate-50 border border-slate-200"
-                                  >
-                                    <span className="font-bold text-purple-700">Día {d}: </span>
-                                    <span className="text-slate-700 italic">«{txt}»</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 4. 🛠️ BOTONES DE ACCIÓN AL FINAL */}
-                        <div
-                          className="rounded-2xl p-3.5 flex flex-col gap-2 mt-1"
-                          style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
-                        >
-                          <p className="font-display font-bold text-xs uppercase text-slate-400 tracking-wider mb-0.5">
-                            Acciones para {student.firstName || student.name.split(' ')[0]}
-                          </p>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {/* 1. Recordatorio por WhatsApp */}
-                            <button
-                              id={`whatsapp-reminder-btn-${student.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleInviteWhatsApp(student);
-                              }}
-                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
-                              style={{
-                                background: '#25D366',
-                                borderBottom: '3px solid #1aab52',
-                                color: '#ffffff',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 17, height: 17, flexShrink: 0 }}>
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                              </svg>
-                              <span>Recordatorio por WhatsApp</span>
-                            </button>
-
-                            {/* 2. Convertir en instructor */}
-                            {!isTargetSuper && (
-                              <button
-                                id={`toggle-role-btn-${student.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleRole(student);
-                                }}
-                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
-                                style={{
-                                  background: isTargetInstructor ? '#3c3c3c' : '#7e22ce',
-                                  borderBottom: isTargetInstructor ? '3px solid #222222' : '3px solid #581c87',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <Shield style={{ width: 16, height: 16, color: '#ffc800' }} />
-                                <span>{isTargetInstructor ? 'Quitar Maestro (Hacer Alumno)' : 'Convertir en Maestro'}</span>
-                              </button>
-                            )}
-
-                            {/* 3. Modificar perfil */}
-                            <button
-                              id={`edit-profile-btn-${student.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditProfile(student);
-                              }}
-                              className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
-                              style={{
-                                background: '#1cb0f6',
-                                borderBottom: '3px solid #1899d6',
-                                color: '#ffffff',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <Edit2 style={{ width: 15, height: 15 }} />
-                              <span>Modificar Perfil</span>
-                            </button>
-
-                            {/* 4. Borrar usuario */}
-                            {!isTargetSuper && (
-                              <button
-                                id={`delete-user-btn-${student.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteStudent(student);
-                                }}
-                                disabled={deletingId === student.id}
-                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs"
-                                style={{
-                                  background: '#fff1f2',
-                                  border: '2px solid #fecdd3',
-                                  color: '#e11d48',
-                                  cursor: deletingId === student.id ? 'wait' : 'pointer',
-                                }}
-                              >
-                                <Trash2 style={{ width: 15, height: 15 }} />
-                                <span>{deletingId === student.id ? 'Borrando...' : 'Borrar Usuario'}</span>
-                              </button>
-                            )}
-
-                            {/* 5. Convertir a Superuser: solo visible para un Superuser y aplicable a Maestros */}
-                            {isSuperAdmin && isTargetInstructor && (
-                              <button
-                                id={`toggle-superuser-btn-${student.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleSuperuser(student);
-                                }}
-                                className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs col-span-1 sm:col-span-2"
-                                style={{
-                                  background: isTargetSuper ? '#222222' : '#ffc800',
-                                  borderBottom: isTargetSuper ? '3px solid #000000' : '3px solid #d99b00',
-                                  color: isTargetSuper ? '#ffc800' : '#222222',
-                                  border: isTargetSuper ? '1.5px solid #ffc800' : 'none',
-                                  cursor: (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL ? 'default' : 'pointer',
-                                }}
-                                disabled={(student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL}
-                                title={
-                                  (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL
-                                    ? 'Superadmin Fundador'
-                                    : isTargetSuper
-                                    ? 'Revocar permisos de Superuser'
-                                    : 'Convertir a este Maestro en Superuser'
-                                }
-                              >
-                                <Crown style={{ width: 16, height: 16, color: isTargetSuper ? '#ffc800' : '#222222' }} />
-                                <span>
-                                  {isTargetSuper
-                                    ? (student.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL
-                                      ? 'Superadmin Principal 👑'
-                                      : 'Quitar Superuser (Volver a Maestro regular)'
-                                    : '👑 Convertir a Maestro en Superuser'}
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -1697,6 +1333,425 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             Exportar Reporte
           </button>
         </div>
+
+        {/* ── Modal Flotante: Detalles Completos del Alumno (Portal al body) ── */}
+        {selectedStudentDetail && typeof document !== 'undefined' && createPortal(
+          <div
+            className="fixed inset-0 z-[9990] bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+            onClick={() => setSelectedStudentDetailId(null)}
+          >
+            <div
+              className="w-full max-w-lg bg-white rounded-3xl p-5 shadow-2xl flex flex-col gap-3.5 animate-scaleUp max-h-[90vh] overflow-y-auto no-scrollbar relative"
+              onClick={(e) => e.stopPropagation()}
+              style={{ border: '3px solid #e5e5e5' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="font-display font-bold text-white flex items-center justify-center shrink-0"
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '50%',
+                      background: isUserInstructor(selectedStudentDetail) ? '#3c3c3c' : '#1cb0f6',
+                      color: isUserInstructor(selectedStudentDetail) ? '#ffc800' : '#ffffff',
+                      border: isUserInstructor(selectedStudentDetail) ? '2px solid #ffc800' : 'none',
+                      fontSize: 15,
+                    }}
+                  >
+                    {getUserInitials(selectedStudentDetail)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-display font-bold text-slate-800 text-lg leading-tight truncate">
+                        {selectedStudentDetail.name}
+                      </h3>
+                      {selectedStudentDetail.completedDays.length >= 30 && (
+                        <span title="Completó el desafío">👑</span>
+                      )}
+                      {isUserSuperAdmin(selectedStudentDetail) ? (
+                        <span className="font-display font-bold text-[10px] bg-[#222222] text-[#ffc800] border border-[#ffc800] rounded-full px-2 py-0.5">
+                          Superadmin
+                        </span>
+                      ) : isUserInstructor(selectedStudentDetail) ? (
+                        <span className="font-display font-bold text-[10px] bg-[#3c3c3c] text-[#ffc800] rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <Shield style={{ width: 10, height: 10 }} />
+                          Maestro
+                        </span>
+                      ) : (
+                        <span className="font-display font-bold text-[10px] bg-[#f0f0f0] text-[#777777] rounded-full px-2 py-0.5">
+                          Alumno
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate mt-0.5">
+                      {selectedStudentDetail.email}
+                      {selectedStudentDetail.ward ? ` · ${selectedStudentDetail.ward}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudentDetailId(null)}
+                  className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2"
+                  aria-label="Cerrar detalles"
+                >
+                  <X style={{ width: 18, height: 18 }} />
+                </button>
+              </div>
+
+              {/* 1. 📍 Información del Barrio y Alumno */}
+              <div
+                className="rounded-2xl p-3.5"
+                style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
+              >
+                <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
+                  <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <MapPin style={{ width: 14, height: 14, color: '#0369a1' }} />
+                    Información del Barrio
+                  </span>
+                  <span
+                    className="font-display font-bold text-[11px] rounded-full px-2.5 py-0.5"
+                    style={{
+                      background: isUserSuperAdmin(selectedStudentDetail)
+                        ? '#222222'
+                        : isUserInstructor(selectedStudentDetail)
+                        ? '#3c3c3c'
+                        : '#f0f0f0',
+                      color: isUserSuperAdmin(selectedStudentDetail)
+                        ? '#ffc800'
+                        : isUserInstructor(selectedStudentDetail)
+                        ? '#ffc800'
+                        : '#555555',
+                    }}
+                  >
+                    {isUserSuperAdmin(selectedStudentDetail)
+                      ? 'Superadministrador 👑'
+                      : isUserInstructor(selectedStudentDetail)
+                      ? 'Maestro 🛡️'
+                      : 'Alumno 📖'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Barrio / Rama</p>
+                    <p className="font-bold text-slate-800 text-sm mt-0.5">
+                      {selectedStudentDetail.ward || <span className="text-slate-400 font-normal italic">Sin barrio registrado</span>}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Clase de Seminario</p>
+                    <p className="font-bold text-slate-800 text-sm mt-0.5 truncate">
+                      {selectedStudentDetail.seminaryClass || 'Seminario - Antiguo Testamento'}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</p>
+                    <p className="font-semibold text-slate-700 truncate mt-0.5">
+                      {selectedStudentDetail.email}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Última Lectura Registrada</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {selectedStudentDetail.lastCompletedDate || 'Aún no ha completado lecturas'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. 📖 Asistencia y Lectura de Hoy en Clase */}
+              <div
+                className="p-3.5 rounded-2xl flex items-center justify-between gap-3"
+                style={{
+                  background: isStudentDoneToday(selectedStudentDetail) ? '#f0fdf4' : '#eff6ff',
+                  border: `2px solid ${isStudentDoneToday(selectedStudentDetail) ? '#86efac' : '#93c5fd'}`,
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-bold text-xs text-[#3c3c3c]">
+                    Lectura de Hoy (Día {challengeDay}{todayReading ? `: ${todayReading.character}` : ''})
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {isStudentDoneToday(selectedStudentDetail)
+                      ? '✓ Marcado como leído (alumno o maestro en clase).'
+                      : '¿El alumno leyó en clase o en papel sin celular? Márcalo aquí:'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof challengeDay === 'number') {
+                      handleToggleDayForStudent(selectedStudentDetail.id, challengeDay);
+                    }
+                  }}
+                  className="font-display font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  style={{
+                    background: isStudentDoneToday(selectedStudentDetail) ? '#dcfce7' : '#1cb0f6',
+                    color: isStudentDoneToday(selectedStudentDetail) ? '#15803d' : '#ffffff',
+                    border: `2px solid ${isStudentDoneToday(selectedStudentDetail) ? '#86efac' : '#1899d6'}`,
+                  }}
+                >
+                  {isStudentDoneToday(selectedStudentDetail) ? (
+                    <>
+                      <CheckCircle style={{ width: 15, height: 15 }} />
+                      <span>Leído ✓ (Desmarcar)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check style={{ width: 15, height: 15 }} strokeWidth={3} />
+                      <span>Marcar Leído en Clase</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 3. 🔥 Días de Racha y Matriz de Lectura */}
+              <div
+                className="rounded-2xl p-3.5"
+                style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
+              >
+                <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 flex-wrap gap-2">
+                  <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <Flame style={{ width: 15, height: 15, color: '#ff9600' }} />
+                    Progreso y Racha
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-extrabold text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-lg">
+                      🔥 Racha: {selectedStudentDetail.currentStreak} días
+                    </span>
+                    <span className="font-display font-bold text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
+                      ⭐ Máx: {selectedStudentDetail.highestStreak}d
+                    </span>
+                    <span className="font-display font-bold text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
+                      📖 {selectedStudentDetail.completedDays.length}/30 días ({Math.round((selectedStudentDetail.completedDays.length / 30) * 100)}%)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-2">
+                  <p className="text-[11px] font-bold text-slate-500 mb-1.5">
+                    Matriz de Lecturas (toca cualquier día para marcar o desmarcar si leyó en papel):
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(7, 1fr)',
+                      gap: 5,
+                    }}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                      const done = selectedStudentDetail.completedDays.includes(day);
+                      const isTodayDay = day === challengeDay;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleToggleDayForStudent(selectedStudentDetail.id, day)}
+                          title={`Día ${day}${isTodayDay ? ' (HOY)' : ''}: ${done ? 'Completado' : 'Pendiente'}`}
+                          className="font-display font-bold flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                          style={{
+                            height: 34,
+                            borderRadius: 8,
+                            fontSize: 12,
+                            border: isTodayDay ? '2px solid #ffc800' : 'none',
+                            background: done ? '#58cc02' : '#e5e5e5',
+                            color: done ? '#ffffff' : '#777777',
+                            boxShadow: isTodayDay ? '0 0 0 2px rgba(255,200,0,0.4)' : 'none',
+                          }}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Student notes */}
+                {selectedStudentDetail.notes && Object.keys(selectedStudentDetail.notes).length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100">
+                    <p className="font-bold text-xs text-slate-600 mb-1.5">
+                      Reflexiones del alumno ({Object.keys(selectedStudentDetail.notes).length}):
+                    </p>
+                    <div className="no-scrollbar flex flex-col gap-1.5 max-h-28 overflow-y-auto">
+                      {Object.entries(selectedStudentDetail.notes).map(([d, txt]) => (
+                        <div
+                          key={d}
+                          className="rounded-xl p-2 text-xs bg-slate-50 border border-slate-200"
+                        >
+                          <span className="font-bold text-purple-700">Día {d}: </span>
+                          <span className="text-slate-700 italic">«{txt}»</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. 🏆 Cartas Desbloqueadas */}
+              <div
+                className="rounded-2xl p-3.5"
+                style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-display font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <Award style={{ width: 15, height: 15, color: '#ffc800' }} />
+                    Cartas Desbloqueadas ({selectedStudentDetail.unlockedBadgeIds.length})
+                  </span>
+                  <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                    Premios y Patriarcas
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {Object.values(SPECIAL_BADGES).map((badge) => {
+                    const won = selectedStudentDetail.unlockedBadgeIds.includes(badge.id);
+                    return (
+                      <div
+                        key={badge.id}
+                        className="font-bold flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs"
+                        style={{
+                          background: won
+                            ? (badge.tier === 'gold' ? '#fffbe0' : '#f5eeff')
+                            : '#f8fafc',
+                          border: `2px solid ${won ? (badge.tier === 'gold' ? '#ffc800' : '#a560f0') : '#e2e8f0'}`,
+                          color: won ? '#3c3c3c' : '#94a3b8',
+                        }}
+                      >
+                        <span>{won ? '✓' : '🔒'}</span>
+                        <span>{badge.patriarch}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 5. 🛠️ BOTONES DE ACCIÓN */}
+              <div
+                className="rounded-2xl p-3.5 flex flex-col gap-2"
+                style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
+              >
+                <p className="font-display font-bold text-xs uppercase text-slate-400 tracking-wider mb-0.5">
+                  Acciones para {selectedStudentDetail.firstName || selectedStudentDetail.name.split(' ')[0]}
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Recordatorio WhatsApp */}
+                  <button
+                    id={`whatsapp-reminder-btn-${selectedStudentDetail.id}`}
+                    onClick={() => handleInviteWhatsApp(selectedStudentDetail)}
+                    className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs cursor-pointer shadow-xs"
+                    style={{
+                      background: '#25D366',
+                      borderBottom: '3px solid #1aab52',
+                      color: '#ffffff',
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 17, height: 17, flexShrink: 0 }}>
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    <span>Recordatorio por WhatsApp</span>
+                  </button>
+
+                  {/* Modificar perfil */}
+                  <button
+                    id={`edit-profile-btn-${selectedStudentDetail.id}`}
+                    onClick={() => handleOpenEditProfile(selectedStudentDetail)}
+                    className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs cursor-pointer shadow-xs"
+                    style={{
+                      background: '#1cb0f6',
+                      borderBottom: '3px solid #1899d6',
+                      color: '#ffffff',
+                    }}
+                  >
+                    <Edit2 style={{ width: 15, height: 15 }} />
+                    <span>Modificar Perfil</span>
+                  </button>
+
+                  {/* Convertir en instructor */}
+                  {!isUserSuperAdmin(selectedStudentDetail) && (
+                    <button
+                      id={`toggle-role-btn-${selectedStudentDetail.id}`}
+                      onClick={() => handleToggleRole(selectedStudentDetail)}
+                      className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs cursor-pointer shadow-xs"
+                      style={{
+                        background: isUserInstructor(selectedStudentDetail) ? '#3c3c3c' : '#7e22ce',
+                        borderBottom: isUserInstructor(selectedStudentDetail) ? '3px solid #222222' : '3px solid #581c87',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <Shield style={{ width: 16, height: 16, color: '#ffc800' }} />
+                      <span>{isUserInstructor(selectedStudentDetail) ? 'Quitar Maestro (Hacer Alumno)' : 'Convertir en Maestro'}</span>
+                    </button>
+                  )}
+
+                  {/* Borrar usuario */}
+                  {!isUserSuperAdmin(selectedStudentDetail) && (
+                    <button
+                      id={`delete-user-btn-${selectedStudentDetail.id}`}
+                      onClick={() => {
+                        const s = selectedStudentDetail;
+                        setSelectedStudentDetailId(null);
+                        handleDeleteStudent(s);
+                      }}
+                      disabled={deletingId === selectedStudentDetail.id}
+                      className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs cursor-pointer shadow-xs"
+                      style={{
+                        background: '#fff1f2',
+                        border: '2px solid #fecdd3',
+                        color: '#e11d48',
+                      }}
+                    >
+                      <Trash2 style={{ width: 15, height: 15 }} />
+                      <span>{deletingId === selectedStudentDetail.id ? 'Borrando...' : 'Borrar Usuario'}</span>
+                    </button>
+                  )}
+
+                  {/* Superuser */}
+                  {isSuperAdmin && isUserInstructor(selectedStudentDetail) && (
+                    <button
+                      id={`toggle-superuser-btn-${selectedStudentDetail.id}`}
+                      onClick={() => handleToggleSuperuser(selectedStudentDetail)}
+                      className="w-full flex items-center justify-center gap-2 font-display font-bold rounded-xl py-2.5 px-3 active:scale-95 transition-all text-xs col-span-1 sm:col-span-2 cursor-pointer shadow-xs"
+                      style={{
+                        background: isUserSuperAdmin(selectedStudentDetail) ? '#222222' : '#ffc800',
+                        borderBottom: isUserSuperAdmin(selectedStudentDetail) ? '3px solid #000000' : '3px solid #d99b00',
+                        color: isUserSuperAdmin(selectedStudentDetail) ? '#ffc800' : '#222222',
+                        border: isUserSuperAdmin(selectedStudentDetail) ? '1.5px solid #ffc800' : 'none',
+                      }}
+                      disabled={(selectedStudentDetail.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL}
+                    >
+                      <Crown style={{ width: 16, height: 16, color: isUserSuperAdmin(selectedStudentDetail) ? '#ffc800' : '#222222' }} />
+                      <span>
+                        {isUserSuperAdmin(selectedStudentDetail)
+                          ? (selectedStudentDetail.email || '').toLowerCase().trim() === SUPERADMIN_EMAIL
+                            ? 'Superadmin Principal 👑'
+                            : 'Quitar Superuser (Volver a Maestro regular)'
+                          : '👑 Convertir a Maestro en Superuser'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Cerrar modal button */}
+              <button
+                type="button"
+                onClick={() => setSelectedStudentDetailId(null)}
+                className="w-full py-3 rounded-2xl font-display font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors text-sm cursor-pointer mt-1"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
         {/* ── Modal Flotante: Modificar Perfil de Alumno (Portal al body para máxima visibilidad al frente) ── */}
         {editingStudent && typeof document !== 'undefined' && createPortal(

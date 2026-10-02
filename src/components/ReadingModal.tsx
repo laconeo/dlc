@@ -849,8 +849,13 @@ export const ReadingModal: React.FC<ReadingModalProps> = ({
         {/* ── Celebration Overlay ── */}
         {showCelebration && (
           <div
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6 animate-fadeIn"
+            onClick={() => {
+              setShowCelebration(false);
+              onClose();
+            }}
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6 animate-fadeIn cursor-pointer"
             style={{ background: 'rgba(0,0,0,0.85)' }}
+            title="Toca para continuar"
           >
             <div className="text-7xl animate-bounce mb-4">🔥</div>
             <h3

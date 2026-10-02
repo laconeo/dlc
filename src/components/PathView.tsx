@@ -210,9 +210,8 @@ export const PathView: React.FC<PathViewProps> = ({
                   isPast = true;
                 }
 
-                // 1. Es el día de hoy en el calendario (siempre azul + onda, esté o no completado)
+                // 1. Es el día de hoy en el calendario y AÚN NO ha sido leído (activo, azul con ola de agua radiante)
                 const isActiveToday = isToday && !isCompleted;
-                const isTodayCompleted = isToday && isCompleted;
 
                 // 2. Lectura pasada no leída: permanece gris con carita triste
                 const isPastUnread = isPast && !isCompleted;
@@ -225,7 +224,7 @@ export const PathView: React.FC<PathViewProps> = ({
                     className="relative flex flex-col items-center"
                     style={{ transform: `translateX(${offsetPx}px)` }}
                   >
-                    {/* ¡Leer hoy! bubble — solo si aún NO está completado */}
+                    {/* ¡Leer hoy! bubble — SOLO si es el día de hoy y aún NO está completado */}
                     {isActiveToday && (
                       <div className="absolute z-20 animate-bounce" style={{ top: -48 }}>
                         <div
@@ -256,8 +255,8 @@ export const PathView: React.FC<PathViewProps> = ({
 
                     {/* Node button */}
                     <div className="relative">
-                      {/* Efecto de honda de agua concéntrico para la lectura de hoy (siempre que sea hoy) */}
-                      {(isActiveToday || isTodayCompleted) && (
+                      {/* Efecto de honda de agua radiante SOLO para la lectura de hoy si aún no ha sido leída */}
+                      {isActiveToday && (
                         <>
                           <div className="water-ripple-ring water-ripple-ring-1" />
                           <div className="water-ripple-ring water-ripple-ring-2" />
@@ -272,27 +271,19 @@ export const PathView: React.FC<PathViewProps> = ({
                         style={{
                           width: 72,
                           height: 72,
-                          ...(isActiveToday
-                            ? {
-                                background: '#1cb0f6',
-                                borderBottom: '5px solid #1899d6',
-                                color: '#ffffff',
-                                outline: '4px solid rgba(28, 176, 246, 0.4)',
-                                outlineOffset: 3,
-                              }
-                            : isTodayCompleted
-                            ? {
-                                background: '#1cb0f6',
-                                borderBottom: '5px solid #1899d6',
-                                color: '#ffffff',
-                                outline: '4px solid rgba(28, 176, 246, 0.4)',
-                                outlineOffset: 3,
-                              }
-                            : isCompleted
+                          ...(isCompleted
                             ? {
                                 background: '#58cc02',
                                 borderBottom: '5px solid #46a302',
                                 color: '#ffffff',
+                              }
+                            : isActiveToday
+                            ? {
+                                background: '#1cb0f6',
+                                borderBottom: '5px solid #1899d6',
+                                color: '#ffffff',
+                                outline: '4px solid rgba(28, 176, 246, 0.4)',
+                                outlineOffset: 3,
                               }
                             : isPastUnread
                             ? {
@@ -307,19 +298,14 @@ export const PathView: React.FC<PathViewProps> = ({
                               }),
                         }}
                       >
-                        {isActiveToday ? (
+                        {isCompleted ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Check strokeWidth={3} style={{ width: 22, height: 22 }} />
+                            <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
+                          </div>
+                        ) : isActiveToday ? (
                           <div className="flex flex-col items-center gap-0.5">
                             <BookOpen style={{ width: 22, height: 22 }} />
-                            <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
-                          </div>
-                        ) : isTodayCompleted ? (
-                          <div className="flex flex-col items-center gap-0.5">
-                            <Check strokeWidth={3} style={{ width: 22, height: 22 }} />
-                            <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
-                          </div>
-                        ) : isCompleted ? (
-                          <div className="flex flex-col items-center gap-0.5">
-                            <Check strokeWidth={3} style={{ width: 22, height: 22 }} />
                             <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
                           </div>
                         ) : isPastUnread ? (
@@ -338,8 +324,8 @@ export const PathView: React.FC<PathViewProps> = ({
                           </div>
                         )}
 
-                        {/* Gold star on completed (no en el de hoy completado — se muestra diferente) */}
-                        {isCompleted && !isTodayCompleted && (
+                        {/* Gold star on completed — siempre para cualquier día leído */}
+                        {isCompleted && (
                           <span
                             className="absolute rounded-full font-bold text-white flex items-center justify-center"
                             style={{
@@ -347,23 +333,6 @@ export const PathView: React.FC<PathViewProps> = ({
                               right: -4,
                               background: '#ffc800',
                               border: '2px solid #ffffff',
-                              width: 20,
-                              height: 20,
-                              fontSize: 11,
-                            }}
-                          >
-                            ★
-                          </span>
-                        )}
-                        {/* Indicador especial de HOY completado — estrella azul claro */}
-                        {isTodayCompleted && (
-                          <span
-                            className="absolute rounded-full font-bold text-white flex items-center justify-center"
-                            style={{
-                              top: -6,
-                              right: -4,
-                              background: '#ffc800',
-                              border: '2px solid #1cb0f6',
                               width: 20,
                               height: 20,
                               fontSize: 11,

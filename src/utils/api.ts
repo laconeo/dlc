@@ -480,6 +480,11 @@ export async function updateUserPassword(newPassword: string): Promise<Student> 
 // ── TOGGLE DAY ────────────────────────────────────────────────────────────────
 
 export async function toggleStudentDay(studentId: string, day: number, note?: string): Promise<Student> {
+  // 🔍 Diagnóstico: Rastrear cada llamada a toggleStudentDay para detectar marcados inesperados
+  console.log(
+    `[DLC-TOGGLE] toggleStudentDay llamado — studentId: ${studentId}, day: ${day}, timestamp: ${new Date().toISOString()}`,
+    '\nStack trace:', new Error().stack
+  );
   try {
     // 0. Si el usuario actual es un maestro marcando para otro estudiante,
     // intentar primero con el RPC seguro 'instructor_toggle_student_day'

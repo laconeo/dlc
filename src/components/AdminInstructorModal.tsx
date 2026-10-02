@@ -1089,41 +1089,42 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     className="rounded-2xl overflow-hidden hover:border-sky-300 transition-colors"
                     style={{ background: '#ffffff', border: '2px solid #e5e5e5' }}
                   >
-                    {/* Row summary */}
+                    {/* Row summary — compact single-row feel */}
                     <div
                       onClick={() => setSelectedStudentDetailId(student.id)}
-                      className="flex items-center gap-3 cursor-pointer"
-                      style={{ padding: '12px 14px' }}
+                      className="flex items-center gap-2.5 cursor-pointer"
+                      style={{ padding: '10px 12px' }}
                       title="Haz clic para ver detalles y gestionar al alumno"
                     >
                       {/* Avatar with 2 initials */}
                       <div
                         className="font-display font-bold text-white flex items-center justify-center shrink-0"
                         style={{
-                          width: 42,
-                          height: 42,
+                          width: 38,
+                          height: 38,
                           borderRadius: '50%',
                           background: isTargetInstructor ? '#3c3c3c' : '#1cb0f6',
                           color: isTargetInstructor ? '#ffc800' : '#ffffff',
                           border: isTargetInstructor ? '2px solid #ffc800' : 'none',
-                          fontSize: 14,
+                          fontSize: 13,
                           letterSpacing: '0.5px',
                         }}
                       >
                         {initials}
                       </div>
 
-                      {/* Name + email + role */}
+                      {/* Name + info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Línea 1: Nombre + edit + rol */}
+                        <div className="flex items-center gap-1 flex-wrap">
                           <h4
                             className="font-display font-bold truncate"
-                            style={{ fontSize: 15, color: '#3c3c3c' }}
+                            style={{ fontSize: 14, color: '#3c3c3c', maxWidth: '55%' }}
                           >
                             {student.name}
                           </h4>
                           {student.completedDays.length >= 30 && (
-                            <span title="Completó el desafío">👑</span>
+                            <span title="Completó el desafío" style={{ fontSize: 12 }}>👑</span>
                           )}
                           <button
                             type="button"
@@ -1131,138 +1132,92 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                               e.stopPropagation();
                               handleOpenEditProfile(student);
                             }}
-                            className="p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                            className="p-0.5 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
                             title={`Editar perfil de ${student.name}`}
                           >
-                            <Edit2 style={{ width: 12, height: 12 }} />
+                            <Edit2 style={{ width: 11, height: 11 }} />
                           </button>
 
                           {/* Role badge */}
                           {isTargetSuper ? (
                             <span
-                              className="font-display font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1"
-                              style={{
-                                fontSize: 10,
-                                background: '#222222',
-                                color: '#ffc800',
-                                border: '1px solid #ffc800',
-                              }}
+                              className="font-display font-bold rounded-full px-1.5 py-px inline-flex items-center gap-0.5"
+                              style={{ fontSize: 9, background: '#222222', color: '#ffc800', border: '1px solid #ffc800' }}
                             >
                               Superadmin
                             </span>
                           ) : isTargetInstructor ? (
                             <span
-                              className="font-display font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1"
-                              style={{
-                                fontSize: 10,
-                                background: '#3c3c3c',
-                                color: '#ffc800',
-                              }}
+                              className="font-display font-bold rounded-full px-1.5 py-px inline-flex items-center gap-0.5"
+                              style={{ fontSize: 9, background: '#3c3c3c', color: '#ffc800' }}
                             >
-                              <Shield style={{ width: 10, height: 10 }} />
+                              <Shield style={{ width: 9, height: 9 }} />
                               Maestro
                             </span>
-                          ) : (
-                            <span
-                              className="font-display font-bold rounded-full px-2 py-0.5"
-                              style={{
-                                fontSize: 10,
-                                background: '#f0f0f0',
-                                color: '#777777',
-                              }}
-                            >
-                              Alumno
-                            </span>
-                          )}
-
-                          {/* Botón interactivo de estado de HOY (Marcar leído por el maestro) */}
-                          {isStudentDoneToday(student) ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (typeof challengeDay === 'number') {
-                                  handleToggleDayForStudent(student.id, challengeDay);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 font-bold rounded-lg px-2 py-0.5 text-[10px] transition-all active:scale-95 shadow-xs cursor-pointer"
-                              style={{
-                                background: '#dcfce7',
-                                color: '#15803d',
-                                border: '1px solid #86efac',
-                              }}
-                              title={`Completó la lectura de hoy (Día ${challengeDay}). Toca para desmarcar si fue un error.`}
-                            >
-                              <CheckCircle style={{ width: 11, height: 11 }} />
-                              <span>Leyó Día {challengeDay} ✓</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (typeof challengeDay === 'number') {
-                                  handleToggleDayForStudent(student.id, challengeDay);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 font-bold rounded-lg px-2.5 py-0.5 text-[10px] transition-all active:scale-95 shadow-xs cursor-pointer"
-                              style={{
-                                background: '#58cc02',
-                                color: '#ffffff',
-                                border: '1px solid #46a302',
-                              }}
-                              title={`Marcar Día ${challengeDay} como leído (ej. leyó en clase o en papel)`}
-                            >
-                              <Check style={{ width: 11, height: 11 }} strokeWidth={3} />
-                              <span>Marcar Día {challengeDay} Leído</span>
-                            </button>
-                          )}
+                          ) : null}
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        {/* Línea 2: Email + barrio + indicador HOY */}
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <p
                             className="truncate flex items-center gap-1"
-                            style={{ fontSize: 12, color: '#777777' }}
+                            style={{ fontSize: 11, color: '#999999', maxWidth: '45%' }}
                           >
-                            <Mail style={{ width: 12, height: 12, flexShrink: 0 }} />
+                            <Mail style={{ width: 10, height: 10, flexShrink: 0 }} />
                             {student.email}
                           </p>
 
                           {student.ward && (
                             <span
-                              className="inline-flex items-center gap-1 font-semibold rounded-md px-1.5 py-0.5"
-                              style={{
-                                fontSize: 11,
-                                background: '#f0f9ff',
-                                color: '#0369a1',
-                                border: '1px solid #bae6fd',
-                              }}
+                              className="inline-flex items-center gap-0.5 font-semibold rounded-md px-1 py-px"
+                              style={{ fontSize: 10, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
                               title={`Barrio/Rama: ${student.ward}`}
                             >
-                              <MapPin style={{ width: 10, height: 10 }} />
-                              <span className="truncate max-w-[130px]">{student.ward}</span>
+                              <MapPin style={{ width: 9, height: 9 }} />
+                              <span className="truncate max-w-[90px]">{student.ward}</span>
+                            </span>
+                          )}
+
+                          {/* Indicador de estado de HOY (solo visual) */}
+                          {isStudentDoneToday(student) ? (
+                            <span
+                              className="inline-flex items-center gap-0.5 font-bold rounded-full px-1.5 py-px text-[9px] shrink-0"
+                              style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}
+                              title={`Completó la lectura de hoy (Día ${challengeDay})`}
+                            >
+                              <CheckCircle style={{ width: 9, height: 9 }} />
+                              Hoy ✓
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-0.5 font-bold rounded-full px-1.5 py-px text-[9px] shrink-0"
+                              style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}
+                              title={`Aún no ha leído hoy (Día ${challengeDay})`}
+                            >
+                              <Clock style={{ width: 9, height: 9 }} />
+                              Pendiente
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Streak + progress + toggle */}
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Right side: Streak + chevron */}
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <div
-                          className="font-display font-bold flex items-center gap-1 rounded-xl px-2"
-                          style={{ height: 28, background: '#fff3e0', border: '2px solid #ff9600', color: '#ff9600', fontSize: 13 }}
+                          className="font-display font-bold flex items-center gap-0.5 rounded-lg px-1.5"
+                          style={{ height: 26, background: '#fff3e0', border: '2px solid #ff9600', color: '#ff9600', fontSize: 12 }}
                         >
                           <span>🔥</span>
                           <span>{student.currentStreak}d</span>
                         </div>
 
-                        <div className="hidden sm:block text-right">
-                          <span className="font-display font-bold" style={{ fontSize: 14, color: '#3c3c3c' }}>
+                        <div className="text-right hidden sm:block">
+                          <span className="font-display font-bold" style={{ fontSize: 12, color: '#3c3c3c' }}>
                             {student.completedDays.length}/30
                           </span>
                           <div
-                            className="rounded-full overflow-hidden mt-1"
-                            style={{ width: 64, height: 8, background: '#e5e5e5' }}
+                            className="rounded-full overflow-hidden mt-0.5"
+                            style={{ width: 50, height: 6, background: '#e5e5e5' }}
                           >
                             <div
                               className="h-full rounded-full"
@@ -1275,7 +1230,7 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           style={{ color: '#afafaf', display: 'flex', alignItems: 'center' }}
                           title="Ver detalles del alumno"
                         >
-                          <ChevronRight style={{ width: 20, height: 20 }} />
+                          <ChevronRight style={{ width: 18, height: 18 }} />
                         </div>
                       </div>
                     </div>

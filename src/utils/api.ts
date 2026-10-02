@@ -481,6 +481,34 @@ export async function updateUserPassword(newPassword: string): Promise<Student> 
 
 export async function toggleStudentDay(studentId: string, day: number, note?: string): Promise<Student> {
   try {
+    // 0. Si el usuario actual es un maestro marcando para otro estudiante,
+    // intentar primero con el RPC seguro 'instructor_toggle_student_day'
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+
+      if (currentUserId && currentUserId !== studentId) {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('instructor_toggle_student_day', {
+          p_student_id: studentId,
+          p_day: day,
+        });
+
+        if (!rpcErr && rpcRes) {
+          const { data: freshData } = await supabase
+            .from('students_full')
+            .select('*')
+            .eq('id', studentId)
+            .single();
+
+          if (freshData) {
+            return rowToStudent(freshData);
+          }
+        }
+      }
+    } catch (instructorRpcCheckErr) {
+      console.warn('instructor_toggle_student_day RPC attempt failed or not deployed, fallback to direct query:', instructorRpcCheckErr);
+    }
+
     // 1. ¿Existe ya el día completado?
     const { data: existing } = await supabase
       .from('student_completed_days')
@@ -550,7 +578,13 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
     if (error || !data) throw new Error('Error al recargar el perfil.');
 
     const student = rowToStudent(data);
-    saveLocalStudent(student);
+
+    // Solo guardar en el localStorage del navegador si el estudiante actualizado
+    // es la misma persona que tiene sesión iniciada localmente (evita sobreescribir la sesión del maestro)
+    const local = getLocalStudent();
+    if (local && local.id === studentId) {
+      saveLocalStudent(student);
+    }
     return student;
 
   } catch (err) {

@@ -222,3 +222,51 @@
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
 }
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scaleUp {
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =====================================================
+   WATER RIPPLE ANIMATION (Efecto de onda de agua)
+   ===================================================== */
+@keyframes waterRipple {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+.water-ripple-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 3px solid #1cb0f6;
+  background: rgba(28, 176, 246, 0.12);
+  pointer-events: none;
+  animation: waterRipple 2.4s cubic-bezier(0.1, 0.4, 0.6, 1) infinite;
+}
+
+.water-ripple-ring-1 {
+  animation-delay: 0s;
+}
+
+.water-ripple-ring-2 {
+  animation-delay: 0.8s;
+}
+
+.water-ripple-ring-3 {
+  animation-delay: 1.6s;
+}
+

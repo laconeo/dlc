@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Lock, Sparkles, Award, BookOpen } from 'lucide-react';
+import { Check, Lock, Sparkles, Award, BookOpen, Frown } from 'lucide-react';
 import { DayReading, Student, SpecialBadge } from '../types';
 import { READINGS_DATA, SPECIAL_BADGES } from '../data/readings';
 
@@ -64,22 +64,26 @@ export const PathView: React.FC<PathViewProps> = ({
   // Encontrar la lectura correspondiente al día de hoy según el calendario
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const todayReading = READINGS_DATA.find((r) => r.calendarDate === todayStr);
+  const todayMMDD = todayStr.slice(5);
 
-  let nextActiveDay = 1;
-  if (todayReading && !completedDays.includes(todayReading.day)) {
-    // El día de hoy existe en el calendario y aún no está completado → es el activo
-    nextActiveDay = todayReading.day;
-  } else {
-    // El día de hoy ya fue completado (o no hay lectura para hoy):
-    // buscar el primer día del calendario que no esté completado
-    const nextPending = READINGS_DATA.find((r) => !completedDays.includes(r.day));
-    if (nextPending) {
-      nextActiveDay = nextPending.day;
+  let todayReading =
+    READINGS_DATA.find((r) => r.calendarDate === todayStr) ||
+    READINGS_DATA.find((r) => r.calendarDate.slice(5) === todayMMDD);
+
+  if (!todayReading) {
+    if (todayStr < READINGS_DATA[0].calendarDate && todayMMDD < READINGS_DATA[0].calendarDate.slice(5)) {
+      todayReading = READINGS_DATA[0];
     } else {
-      nextActiveDay = -1; // todos completados
+      const upcoming = READINGS_DATA.find(
+        (r) => r.calendarDate >= todayStr || r.calendarDate.slice(5) >= todayMMDD
+      );
+      if (upcoming) {
+        todayReading = upcoming;
+      }
     }
   }
+
+  const todayDay = todayReading ? todayReading.day : null;
 
   const pct = Math.round((completedDays.length / 30) * 100);
 
@@ -188,7 +192,31 @@ export const PathView: React.FC<PathViewProps> = ({
             <div className="flex flex-col items-center gap-5 py-2">
               {weekReadings.map((reading) => {
                 const isCompleted = completedDays.includes(reading.day);
-                const isActive = reading.day === nextActiveDay;
+
+                // Determinar estado relativo al día presente
+                let isPast = false;
+                let isToday = false;
+                let isFuture = false;
+
+                if (todayDay !== null) {
+                  if (reading.day < todayDay) {
+                    isPast = true;
+                  } else if (reading.day === todayDay) {
+                    isToday = true;
+                  } else {
+                    isFuture = true;
+                  }
+                } else {
+                  isPast = true;
+                }
+
+                // 1. Lectura que toca en el día presente (azul con honda de agua)
+                // Solo la lectura posible del día de hoy y si aún no está completada
+                const isActiveToday = isToday && !isCompleted;
+
+                // 2. Lectura pasada no leída: permanece gris con carita triste
+                const isPastUnread = isPast && !isCompleted;
+
                 const offsetPx = getOffset(reading.day);
 
                 return (
@@ -198,7 +226,7 @@ export const PathView: React.FC<PathViewProps> = ({
                     style={{ transform: `translateX(${offsetPx}px)` }}
                   >
                     {/* ¡Leer hoy! bubble */}
-                    {isActive && (
+                    {isActiveToday && (
                       <div className="absolute z-20 animate-bounce" style={{ top: -48 }}>
                         <div
                           className="font-display font-bold uppercase rounded-full px-3 flex items-center gap-1"
@@ -228,14 +256,13 @@ export const PathView: React.FC<PathViewProps> = ({
 
                     {/* Node button */}
                     <div className="relative">
-                      {isActive && (
-                        <div
-                          className="absolute rounded-full animate-ping pointer-events-none"
-                          style={{
-                            inset: -10,
-                            background: `${cfg.color}30`,
-                          }}
-                        />
+                      {/* Efecto de honda de agua concéntrico para la lectura de hoy */}
+                      {isActiveToday && (
+                        <>
+                          <div className="water-ripple-ring water-ripple-ring-1" />
+                          <div className="water-ripple-ring water-ripple-ring-2" />
+                          <div className="water-ripple-ring water-ripple-ring-3" />
+                        </>
                       )}
 
                       <button
@@ -245,19 +272,25 @@ export const PathView: React.FC<PathViewProps> = ({
                         style={{
                           width: 72,
                           height: 72,
-                          ...(isCompleted
+                          ...(isActiveToday
+                            ? {
+                                background: '#1cb0f6',
+                                borderBottom: '5px solid #1899d6',
+                                color: '#ffffff',
+                                outline: '4px solid rgba(28, 176, 246, 0.4)',
+                                outlineOffset: 3,
+                              }
+                            : isCompleted
                             ? {
                                 background: '#58cc02',
                                 borderBottom: '5px solid #46a302',
                                 color: '#ffffff',
                               }
-                            : isActive
+                            : isPastUnread
                             ? {
-                                background: cfg.color,
-                                borderBottom: `5px solid ${cfg.darkColor}`,
-                                color: '#ffffff',
-                                outline: `4px solid ${cfg.color}40`,
-                                outlineOffset: 3,
+                                background: '#e5e5e5',
+                                borderBottom: '5px solid #c8c8c8',
+                                color: '#777777',
                               }
                             : {
                                 background: '#e5e5e5',
@@ -266,15 +299,22 @@ export const PathView: React.FC<PathViewProps> = ({
                               }),
                         }}
                       >
-                        {isCompleted ? (
+                        {isActiveToday ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <BookOpen style={{ width: 22, height: 22 }} />
+                            <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
+                          </div>
+                        ) : isCompleted ? (
                           <div className="flex flex-col items-center gap-0.5">
                             <Check strokeWidth={3} style={{ width: 22, height: 22 }} />
                             <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
                           </div>
-                        ) : isActive ? (
+                        ) : isPastUnread ? (
                           <div className="flex flex-col items-center gap-0.5">
-                            <BookOpen style={{ width: 22, height: 22 }} />
-                            <span style={{ fontSize: 10, fontWeight: 800 }}>DÍA {reading.day}</span>
+                            <Frown strokeWidth={2.5} style={{ width: 22, height: 22, color: '#777777' }} />
+                            <span style={{ fontSize: 10, fontWeight: 800, color: '#777777' }}>
+                              DÍA {reading.day}
+                            </span>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-0.5">

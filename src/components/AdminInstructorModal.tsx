@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Shield,
@@ -23,6 +24,7 @@ import {
   Edit2,
   Save,
   Crown,
+  Check,
 } from 'lucide-react';
 import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin } from '../types';
 import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent, updateStudentProfile, toggleStudentSuperuser } from '../utils/api';
@@ -138,6 +140,18 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
     setEditClass(s.seminaryClass || 'Seminario - Antiguo Testamento');
   };
 
+  // Cerrar modal de edición con la tecla Escape
+  useEffect(() => {
+    if (!editingStudent) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEditingStudent(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingStudent]);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
@@ -206,7 +220,12 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
       const updated = await toggleStudentDay(studentId, day);
       setStudents((prev) => prev.map((s) => (s.id === studentId ? updated : s)));
       if (onStudentUpdated) onStudentUpdated();
-      setActionMessage(`Día ${day} actualizado para ${updated.name}`);
+      const isDoneNow = updated.completedDays.includes(day);
+      setActionMessage(
+        isDoneNow
+          ? `✓ Día ${day} marcado como leído para ${updated.name}`
+          : `Día ${day} desmarcado para ${updated.name}`
+      );
       setTimeout(() => setActionMessage(null), 2500);
     } catch {
       alert('Error al actualizar el día');
@@ -1097,6 +1116,17 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           {student.completedDays.length >= 30 && (
                             <span title="Completó el desafío">👑</span>
                           )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditProfile(student);
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                            title={`Editar perfil de ${student.name}`}
+                          >
+                            <Edit2 style={{ width: 12, height: 12 }} />
+                          </button>
 
                           {/* Role badge */}
                           {isTargetSuper ? (
@@ -1136,33 +1166,47 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                             </span>
                           )}
 
-                          {/* Badge de estado de HOY */}
+                          {/* Botón interactivo de estado de HOY (Marcar leído por el maestro) */}
                           {isStudentDoneToday(student) ? (
-                            <span
-                              className="inline-flex items-center gap-1 font-bold rounded-md px-1.5 py-0.5 text-[10px]"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof challengeDay === 'number') {
+                                  handleToggleDayForStudent(student.id, challengeDay);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 font-bold rounded-lg px-2 py-0.5 text-[10px] transition-all active:scale-95 shadow-xs cursor-pointer"
                               style={{
                                 background: '#dcfce7',
                                 color: '#15803d',
                                 border: '1px solid #86efac',
                               }}
-                              title={`Completó la lectura de hoy (Día ${challengeDay})`}
+                              title={`Completó la lectura de hoy (Día ${challengeDay}). Toca para desmarcar si fue un error.`}
                             >
-                              <CheckCircle style={{ width: 10, height: 10 }} />
-                              <span>Leyó Día {challengeDay}</span>
-                            </span>
+                              <CheckCircle style={{ width: 11, height: 11 }} />
+                              <span>Leyó Día {challengeDay} ✓</span>
+                            </button>
                           ) : (
-                            <span
-                              className="inline-flex items-center gap-1 font-bold rounded-md px-1.5 py-0.5 text-[10px]"
-                              style={{
-                                background: '#ffedd5',
-                                color: '#c2410c',
-                                border: '1px solid #fed7aa',
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof challengeDay === 'number') {
+                                  handleToggleDayForStudent(student.id, challengeDay);
+                                }
                               }}
-                              title={`Pendiente de reportar la lectura de hoy (Día ${challengeDay})`}
+                              className="inline-flex items-center gap-1 font-bold rounded-lg px-2.5 py-0.5 text-[10px] transition-all active:scale-95 shadow-xs cursor-pointer"
+                              style={{
+                                background: '#58cc02',
+                                color: '#ffffff',
+                                border: '1px solid #46a302',
+                              }}
+                              title={`Marcar Día ${challengeDay} como leído (ej. leyó en clase o en papel)`}
                             >
-                              <Clock style={{ width: 10, height: 10 }} />
-                              <span>Pendiente Día {challengeDay}</span>
-                            </span>
+                              <Check style={{ width: 11, height: 11 }} strokeWidth={3} />
+                              <span>Marcar Día {challengeDay} Leído</span>
+                            </button>
                           )}
                         </div>
 
@@ -1355,9 +1399,56 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                             </div>
                           </div>
 
+                          {/* Asistencia directa de lectura de hoy en clase / papel */}
+                          <div
+                            className="p-3 rounded-xl flex items-center justify-between gap-3 mb-3"
+                            style={{
+                              background: isStudentDoneToday(student) ? '#f0fdf4' : '#eff6ff',
+                              border: `2px solid ${isStudentDoneToday(student) ? '#86efac' : '#93c5fd'}`,
+                            }}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-display font-bold text-xs text-[#3c3c3c]">
+                                Lectura de Hoy (Día {challengeDay}{todayReading ? `: ${todayReading.character}` : ''})
+                              </p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {isStudentDoneToday(student)
+                                  ? '✓ Marcado como leído (alumno o maestro en clase).'
+                                  : '¿El alumno leyó en clase o en papel sin celular? Márcalo aquí:'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof challengeDay === 'number') {
+                                  handleToggleDayForStudent(student.id, challengeDay);
+                                }
+                              }}
+                              className="font-display font-bold text-xs px-3 py-2 rounded-xl transition-all active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              style={{
+                                background: isStudentDoneToday(student) ? '#dcfce7' : '#1cb0f6',
+                                color: isStudentDoneToday(student) ? '#15803d' : '#ffffff',
+                                border: `2px solid ${isStudentDoneToday(student) ? '#86efac' : '#1899d6'}`,
+                              }}
+                            >
+                              {isStudentDoneToday(student) ? (
+                                <>
+                                  <CheckCircle style={{ width: 14, height: 14 }} />
+                                  <span>Leído ✓ (Desmarcar)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check style={{ width: 14, height: 14 }} strokeWidth={3} />
+                                  <span>Marcar Leído en Clase</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
                           <div className="mb-2">
                             <p className="text-[11px] font-bold text-slate-500 mb-1.5">
-                              Matriz de Lecturas (toca para marcar o desmarcar):
+                              Matriz de Lecturas (toca cualquier día para marcar o desmarcar si leyó en papel):
                             </p>
                             <div
                               style={{
@@ -1368,20 +1459,23 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                             >
                               {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
                                 const done = student.completedDays.includes(day);
+                                const isTodayDay = day === challengeDay;
                                 return (
                                   <button
                                     key={day}
+                                    type="button"
                                     onClick={() => handleToggleDayForStudent(student.id, day)}
-                                    title={`Día ${day}: ${done ? 'Completado' : 'Pendiente'}`}
+                                    title={`Día ${day}${isTodayDay ? ' (HOY)' : ''}: ${done ? 'Completado' : 'Pendiente'}`}
                                     className="font-display font-bold flex items-center justify-center transition-all active:scale-95"
                                     style={{
                                       height: 32,
                                       borderRadius: 8,
                                       fontSize: 12,
-                                      border: 'none',
+                                      border: isTodayDay ? '2px solid #ffc800' : 'none',
                                       cursor: 'pointer',
                                       background: done ? '#58cc02' : '#e5e5e5',
                                       color: done ? '#ffffff' : '#777777',
+                                      boxShadow: isTodayDay ? '0 0 0 2px rgba(255,200,0,0.4)' : 'none',
                                     }}
                                   >
                                     {day}
@@ -1604,21 +1698,21 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
           </button>
         </div>
 
-        {/* ── Modal Flotante: Modificar Perfil de Alumno ── */}
-        {editingStudent && (
+        {/* ── Modal Flotante: Modificar Perfil de Alumno (Portal al body para máxima visibilidad al frente) ── */}
+        {editingStudent && typeof document !== 'undefined' && createPortal(
           <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+            className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
             onClick={() => setEditingStudent(null)}
           >
             <div
-              className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl flex flex-col gap-3.5 animate-scaleUp"
+              className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl flex flex-col gap-3.5 animate-scaleUp relative"
               onClick={(e) => e.stopPropagation()}
               style={{ border: '3px solid #e5e5e5' }}
             >
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
                     <Edit2 style={{ width: 18, height: 18 }} />
                   </div>
                   <div>
@@ -1631,8 +1725,9 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setEditingStudent(null)}
-                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer"
                   aria-label="Cerrar"
                 >
                   <X style={{ width: 16, height: 16 }} />
@@ -1702,14 +1797,14 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setEditingStudent(null)}
-                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors text-sm"
+                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors text-sm cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingProfile}
-                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-white bg-sky-500 hover:bg-sky-600 transition-colors text-sm shadow-md flex items-center justify-center gap-1.5"
+                    className="flex-1 py-2.5 rounded-xl font-display font-bold text-white bg-sky-500 hover:bg-sky-600 transition-colors text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Save style={{ width: 16, height: 16 }} />
                     <span>{isSavingProfile ? 'Guardando...' : 'Guardar'}</span>
@@ -1717,7 +1812,8 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
   );

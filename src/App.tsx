@@ -105,7 +105,7 @@ export default function App() {
   };
 
   const handleOpenBadge = (badge: SpecialBadge) => {
-    setSelectedBadge(badge);
+    setSelectedBadge({ ...badge });
     setCurrentPage('cards');
   };
 
@@ -223,7 +223,10 @@ export default function App() {
             <CardsGalleryModal
               student={student}
               isOpen={true}
-              onClose={() => setCurrentPage('path')}
+              onClose={() => {
+                setSelectedBadge(null);
+                setCurrentPage('path');
+              }}
               selectedBadge={selectedBadge}
             />
           )}

@@ -26,11 +26,15 @@ import {
   Save,
   Crown,
   Check,
+  Trophy,
 } from 'lucide-react';
-import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin } from '../types';
+import { Student, InstructorStats, UserRole, SUPERADMIN_EMAIL, isUserInstructor, isUserSuperAdmin, SpecialBadge } from '../types';
 import { fetchInstructorData, toggleStudentDay, updateStudentRole, deleteStudent, updateStudentProfile, toggleStudentSuperuser } from '../utils/api';
 import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
 import { getUserInitials } from './TopHeader';
+import { PrizeCardModal } from './PrizeCardModal';
+import { InstructorRankingView } from './InstructorRankingView';
+import { getStoredPrizeCards, fetchRemotePrizeCards } from '../utils/prizeCardsStorage';
 
 const SEMINARY_CLASSES = [
   'Seminario - Antiguo Testamento',
@@ -134,8 +138,13 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editWard, setEditWard] = useState('');
-  const [editClass, setEditClass] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [panelTab, setPanelTab] = useState<'roster' | 'ranking'>('roster');
+  const [activePrizeBadge, setActivePrizeBadge] = useState<SpecialBadge | null>(null);
+  const [prizeCardsMap, setPrizeCardsMap] = useState<Record<number, string>>(() => getStoredPrizeCards());
+
+  useEffect(() => {
+    fetchRemotePrizeCards().then(setPrizeCardsMap);
+  }, []);
 
   const handleOpenEditProfile = (s: Student) => {
     setEditingStudent(s);
@@ -556,6 +565,59 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
         </div>
       </div>
 
+      {/* ── Tabs del Panel del Maestro: Alumnos vs Ranking ── */}
+      <div className="bg-[#2d2d2d] px-3 py-2 flex items-center justify-between border-b border-[#222] shrink-0 gap-2">
+        <div className="flex items-center gap-1.5 bg-[#1e1e1e] p-1 rounded-xl border border-white/10">
+          <button
+            id="instructor-tab-roster"
+            type="button"
+            onClick={() => setPanelTab('roster')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-display font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              panelTab === 'roster'
+                ? 'bg-[#ffc800] text-[#1e293b] shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Alumnos ({scopedStudents.length})</span>
+          </button>
+
+          <button
+            id="instructor-tab-ranking"
+            type="button"
+            onClick={() => setPanelTab('ranking')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-display font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              panelTab === 'ranking'
+                ? 'bg-[#ffc800] text-[#1e293b] shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Ranking y Barrios</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setActivePrizeBadge(SPECIAL_BADGES.abraham)}
+          className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 px-3 py-1.5 rounded-xl text-xs font-display font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+        >
+          <span>🏆</span>
+          <span className="hidden sm:inline">Cartas Premio</span>
+        </button>
+      </div>
+
+      {panelTab === 'ranking' ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <InstructorRankingView
+            students={scopedStudents}
+            isSuperAdmin={isSuperAdmin}
+            instructorWard={instructorWard}
+            onSelectStudent={(s) => setSelectedStudentDetailId(s.id)}
+          />
+        </div>
+      ) : (
+        <>
           {(() => {
             // Calcular el día actual del desafío según el calendario
             const now = new Date();
@@ -656,7 +718,21 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      onClick={() => setActivePrizeBadge(SPECIAL_BADGES.abraham)}
+                      className="font-display font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-xs"
+                      style={{
+                        background: '#fefce8',
+                        color: '#854d0e',
+                        border: '1.5px solid #fde047',
+                        cursor: 'pointer',
+                      }}
+                      title="Subir o gestionar las cartas premio de las 4 semanas"
+                    >
+                      <span>🏆</span>
+                      <span>Cartas Premio</span>
+                    </button>
                     <button
                       onClick={() => setSelectedFilter(selectedFilter === 'pending_today' ? 'all' : 'pending_today')}
                       className="font-display font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-xs"
@@ -1288,6 +1364,8 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             Exportar Reporte
           </button>
         </div>
+        </>
+      )}
 
         {/* ── Modal Flotante: Detalles Completos del Alumno (Portal al body) ── */}
         {selectedStudentDetail && typeof document !== 'undefined' && createPortal(
@@ -1568,9 +1646,11 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                   {Object.values(SPECIAL_BADGES).map((badge) => {
                     const won = selectedStudentDetail.unlockedBadgeIds.includes(badge.id);
                     return (
-                      <div
+                      <button
                         key={badge.id}
-                        className="font-bold flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs"
+                        type="button"
+                        onClick={() => setActivePrizeBadge(badge)}
+                        className="font-bold flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs active:scale-95 transition-all cursor-pointer"
                         style={{
                           background: won
                             ? (badge.tier === 'gold' ? '#fffbe0' : '#f5eeff')
@@ -1578,10 +1658,12 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
                           border: `2px solid ${won ? (badge.tier === 'gold' ? '#ffc800' : '#a560f0') : '#e2e8f0'}`,
                           color: won ? '#3c3c3c' : '#94a3b8',
                         }}
+                        title={`Toca para ver o gestionar la Carta Premio de ${badge.patriarch}`}
                       >
                         <span>{won ? '✓' : '🔒'}</span>
                         <span>{badge.patriarch}</span>
-                      </div>
+                        <span className="text-[10px] text-blue-500">👁️</span>
+                      </button>
                     );
                   })}
                 </div>
@@ -1824,6 +1906,25 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
             </div>
           </div>,
           document.body
+        )}
+
+        {/* ── Modal de Carta Premio para el Instructor ── */}
+        {activePrizeBadge && (
+          <PrizeCardModal
+            isOpen={Boolean(activePrizeBadge)}
+            onClose={() => setActivePrizeBadge(null)}
+            badge={activePrizeBadge}
+            student={currentStudent || null}
+            prizeCardsMap={prizeCardsMap}
+            onCardUpdated={(week, img) => setPrizeCardsMap((prev) => ({ ...prev, [week]: img }))}
+            onCardDeleted={(week) =>
+              setPrizeCardsMap((prev) => {
+                const n = { ...prev };
+                delete n[week];
+                return n;
+              })
+            }
+          />
         )}
       </div>
   );

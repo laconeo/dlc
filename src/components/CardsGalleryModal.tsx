@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Trophy,
   Award,
@@ -13,8 +13,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Star,
+  Upload,
 } from 'lucide-react';
-import { Student, SpecialBadge } from '../types';
+import { Student, SpecialBadge, isUserInstructor } from '../types';
+import { SPECIAL_BADGES, READINGS_DATA } from '../data/readings';
+import { PrizeCardModal } from './PrizeCardModal';
+import {
+  getStoredPrizeCards,
+  fetchRemotePrizeCards,
+} from '../utils/prizeCardsStorage';
 
 interface CardsGalleryModalProps {
   student: Student | null;
@@ -27,11 +34,55 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
   student,
   isOpen = true,
   onClose,
+  selectedBadge,
 }) => {
+  const [activeBadge, setActiveBadge] = useState<SpecialBadge | null>(selectedBadge || null);
+  const [prizeCardsMap, setPrizeCardsMap] = useState<Record<number, string>>(() => getStoredPrizeCards());
+
+  useEffect(() => {
+    fetchRemotePrizeCards().then((remote) => {
+      setPrizeCardsMap(remote);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedBadge) {
+      setActiveBadge(selectedBadge);
+    }
+  }, [selectedBadge]);
+
   if (isOpen === false) return null;
 
   const currentStreak = student?.currentStreak || 0;
   const completedCount = student?.completedDays?.length || 0;
+  const completedDays = student?.completedDays || [];
+  const isInstructor = isUserInstructor(student);
+
+  // Helper para verificar si se completaron los días de una semana específica
+  const checkWeekCompleted = (weekNum: number) => {
+    const days = READINGS_DATA.filter((r) => r.week === weekNum).map((r) => r.day);
+    return days.length > 0 && days.every((d) => completedDays.includes(d));
+  };
+
+  const week1Done = checkWeekCompleted(1);
+  const week2Done = checkWeekCompleted(2);
+  const week3Done = checkWeekCompleted(3);
+  const week4Done = checkWeekCompleted(4);
+
+  const handleCardUpdated = (week: number, imageUrl: string) => {
+    setPrizeCardsMap((prev) => ({
+      ...prev,
+      [week]: imageUrl,
+    }));
+  };
+
+  const handleCardDeleted = (week: number) => {
+    setPrizeCardsMap((prev) => {
+      const next = { ...prev };
+      delete next[week];
+      return next;
+    });
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden animate-fadeIn">
@@ -121,82 +172,264 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
             <div className="flex items-center gap-1.5 mb-1">
               <AlertCircle className="w-4 h-4 text-[#ea580c] shrink-0" />
               <p className="font-display font-bold text-xs text-[#9a3412]">
-                Regla para ganar la Carta:
+                Regla para ganar la Carta Premio:
               </p>
             </div>
             <p className="text-xs text-[#c2410c] leading-relaxed">
-              La carta de la semana <strong>SOLO se gana si completas la TOTALIDAD de las lecturas sin perder ningún día</strong>. Debes marcar la lectura cada día correspondiente de forma consecutiva (7 de 7 días). Si se pierde un día, no se puede reclamar la carta de esa semana.
+              La carta premio <strong>SOLO se desbloquea al completar los 7 días leídos del desafío</strong>. Si se pierde algún día de la semana, la carta permanecerá oculta y verás el mensaje motivacional para la próxima semana.
             </p>
           </div>
 
-          {/* Cartas a ganar */}
-          <p className="font-display font-bold text-xs text-[#475569] mb-2 uppercase tracking-wide">
-            Las 4 Cartas del Desafío:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+          {/* Cartas a ganar (Interactivas) */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-display font-bold text-xs text-[#475569] uppercase tracking-wide">
+              Las 4 Cartas del Desafío:
+            </p>
+            <span className="text-[11px] text-blue-600 font-bold">
+              Toca para ver o cargar
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             {/* Semana 1: Abraham */}
-            <div
-              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
-              style={{ background: '#f8fafc' }}
+            <button
+              id="prize-card-week-1"
+              type="button"
+              onClick={() => setActiveBadge(SPECIAL_BADGES.abraham)}
+              className="rounded-2xl p-2.5 border-2 text-center flex flex-col items-center relative transition-all active:scale-95 group text-left w-full cursor-pointer hover:shadow-md"
+              style={{
+                background: week1Done ? '#f0fdf4' : '#f8fafc',
+                borderColor: week1Done ? '#86efac' : '#e2e8f0',
+              }}
             >
-              <div className="w-9 h-9 rounded-xl bg-[#e0f2fe] flex items-center justify-center text-base mb-1 shadow-sm">
-                🥈
-              </div>
-              <p className="font-display font-bold text-xs text-[#1e293b]">
+              {(() => {
+                const img = prizeCardsMap?.[1];
+                const canSee = week1Done || isInstructor;
+                if (canSee && img) {
+                  return (
+                    <div className="w-full h-32 rounded-xl overflow-hidden shadow-md border-2 border-amber-400 bg-slate-900 mb-2 relative flex items-center justify-center">
+                      <img src={img} alt="Abraham" className="w-full h-full object-cover" />
+                      <div className="absolute top-1.5 right-1.5 bg-black/60 rounded-md px-1.5 py-0.5 text-[9px] text-white font-bold backdrop-blur-xs">
+                        {week1Done ? '🏆 Ganada' : '📸 Maestro'}
+                      </div>
+                    </div>
+                  );
+                }
+                if (week1Done) {
+                  return (
+                    <div className="w-full h-32 rounded-xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-yellow-100 flex flex-col items-center justify-center p-2 mb-2 shadow-sm text-center">
+                      <span className="text-3xl mb-1">🥈</span>
+                      <span className="text-[11px] font-bold text-amber-900 uppercase font-display leading-tight">Abraham</span>
+                      <span className="text-[9px] text-amber-700 font-bold mt-1 bg-amber-200/80 px-2 py-0.5 rounded-full">¡Ganada!</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-300 bg-slate-100 flex flex-col items-center justify-center p-2 mb-2 text-center text-slate-400">
+                    <Lock className="w-6 h-6 mb-1 text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase leading-tight font-display">Abraham</span>
+                    <span className="text-[9px] text-slate-400 mt-1">Faltan días</span>
+                  </div>
+                );
+              })()}
+
+              <p className="font-display font-bold text-xs text-[#1e293b] leading-tight">
                 Abraham
               </p>
               <p className="text-[10px] text-[#64748b]">
-                Semana 1 · 7 días seguidos
+                Semana 1 · 7 días
               </p>
-            </div>
+
+              <span
+                className="mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
+                style={{
+                  background: week1Done ? '#58cc02' : '#e2e8f0',
+                  color: week1Done ? '#ffffff' : '#64748b',
+                }}
+              >
+                {week1Done ? '¡Desbloqueada!' : isInstructor ? 'Cargar / Ver' : 'Bloqueada 🔒'}
+              </span>
+            </button>
 
             {/* Semana 2: Isaac */}
-            <div
-              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
-              style={{ background: '#f8fafc' }}
+            <button
+              id="prize-card-week-2"
+              type="button"
+              onClick={() => setActiveBadge(SPECIAL_BADGES.isaac)}
+              className="rounded-2xl p-2.5 border-2 text-center flex flex-col items-center relative transition-all active:scale-95 group text-left w-full cursor-pointer hover:shadow-md"
+              style={{
+                background: week2Done ? '#f0fdf4' : '#f8fafc',
+                borderColor: week2Done ? '#86efac' : '#e2e8f0',
+              }}
             >
-              <div className="w-9 h-9 rounded-xl bg-[#dcfce7] flex items-center justify-center text-base mb-1 shadow-sm">
-                🥈
-              </div>
-              <p className="font-display font-bold text-xs text-[#1e293b]">
+              {(() => {
+                const img = prizeCardsMap?.[2];
+                const canSee = week2Done || isInstructor;
+                if (canSee && img) {
+                  return (
+                    <div className="w-full h-32 rounded-xl overflow-hidden shadow-md border-2 border-amber-400 bg-slate-900 mb-2 relative flex items-center justify-center">
+                      <img src={img} alt="Isaac" className="w-full h-full object-cover" />
+                      <div className="absolute top-1.5 right-1.5 bg-black/60 rounded-md px-1.5 py-0.5 text-[9px] text-white font-bold backdrop-blur-xs">
+                        {week2Done ? '🏆 Ganada' : '📸 Maestro'}
+                      </div>
+                    </div>
+                  );
+                }
+                if (week2Done) {
+                  return (
+                    <div className="w-full h-32 rounded-xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-yellow-100 flex flex-col items-center justify-center p-2 mb-2 shadow-sm text-center">
+                      <span className="text-3xl mb-1">🥈</span>
+                      <span className="text-[11px] font-bold text-amber-900 uppercase font-display leading-tight">Isaac</span>
+                      <span className="text-[9px] text-amber-700 font-bold mt-1 bg-amber-200/80 px-2 py-0.5 rounded-full">¡Ganada!</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-300 bg-slate-100 flex flex-col items-center justify-center p-2 mb-2 text-center text-slate-400">
+                    <Lock className="w-6 h-6 mb-1 text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase leading-tight font-display">Isaac</span>
+                    <span className="text-[9px] text-slate-400 mt-1">Faltan días</span>
+                  </div>
+                );
+              })()}
+
+              <p className="font-display font-bold text-xs text-[#1e293b] leading-tight">
                 Isaac
               </p>
               <p className="text-[10px] text-[#64748b]">
-                Semana 2 · 14 días seguidos
+                Semana 2 · 7 días
               </p>
-            </div>
+
+              <span
+                className="mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
+                style={{
+                  background: week2Done ? '#58cc02' : '#e2e8f0',
+                  color: week2Done ? '#ffffff' : '#64748b',
+                }}
+              >
+                {week2Done ? '¡Desbloqueada!' : isInstructor ? 'Cargar / Ver' : 'Bloqueada 🔒'}
+              </span>
+            </button>
 
             {/* Semana 3: Jacob */}
-            <div
-              className="rounded-2xl p-2.5 border-2 border-[#e2e8f0] text-center flex flex-col items-center"
-              style={{ background: '#f8fafc' }}
+            <button
+              id="prize-card-week-3"
+              type="button"
+              onClick={() => setActiveBadge(SPECIAL_BADGES.jacob)}
+              className="rounded-2xl p-2.5 border-2 text-center flex flex-col items-center relative transition-all active:scale-95 group text-left w-full cursor-pointer hover:shadow-md"
+              style={{
+                background: week3Done ? '#f0fdf4' : '#f8fafc',
+                borderColor: week3Done ? '#86efac' : '#e2e8f0',
+              }}
             >
-              <div className="w-9 h-9 rounded-xl bg-[#f3e8ff] flex items-center justify-center text-base mb-1 shadow-sm">
-                🥈
-              </div>
-              <p className="font-display font-bold text-xs text-[#1e293b]">
+              {(() => {
+                const img = prizeCardsMap?.[3];
+                const canSee = week3Done || isInstructor;
+                if (canSee && img) {
+                  return (
+                    <div className="w-full h-32 rounded-xl overflow-hidden shadow-md border-2 border-amber-400 bg-slate-900 mb-2 relative flex items-center justify-center">
+                      <img src={img} alt="Jacob" className="w-full h-full object-cover" />
+                      <div className="absolute top-1.5 right-1.5 bg-black/60 rounded-md px-1.5 py-0.5 text-[9px] text-white font-bold backdrop-blur-xs">
+                        {week3Done ? '🏆 Ganada' : '📸 Maestro'}
+                      </div>
+                    </div>
+                  );
+                }
+                if (week3Done) {
+                  return (
+                    <div className="w-full h-32 rounded-xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-yellow-100 flex flex-col items-center justify-center p-2 mb-2 shadow-sm text-center">
+                      <span className="text-3xl mb-1">🥈</span>
+                      <span className="text-[11px] font-bold text-amber-900 uppercase font-display leading-tight">Jacob</span>
+                      <span className="text-[9px] text-amber-700 font-bold mt-1 bg-amber-200/80 px-2 py-0.5 rounded-full">¡Ganada!</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-300 bg-slate-100 flex flex-col items-center justify-center p-2 mb-2 text-center text-slate-400">
+                    <Lock className="w-6 h-6 mb-1 text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase leading-tight font-display">Jacob</span>
+                    <span className="text-[9px] text-slate-400 mt-1">Faltan días</span>
+                  </div>
+                );
+              })()}
+
+              <p className="font-display font-bold text-xs text-[#1e293b] leading-tight">
                 Jacob
               </p>
               <p className="text-[10px] text-[#64748b]">
-                Semana 3 · 21 días seguidos
+                Semana 3 · 7 días
               </p>
-            </div>
+
+              <span
+                className="mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
+                style={{
+                  background: week3Done ? '#58cc02' : '#e2e8f0',
+                  color: week3Done ? '#ffffff' : '#64748b',
+                }}
+              >
+                {week3Done ? '¡Desbloqueada!' : isInstructor ? 'Cargar / Ver' : 'Bloqueada 🔒'}
+              </span>
+            </button>
 
             {/* Día 30: Jesucristo */}
-            <div
-              className="rounded-2xl p-2.5 border-2 border-[#ffe066] text-center flex flex-col items-center"
-              style={{ background: '#fffdf0' }}
+            <button
+              id="prize-card-week-4"
+              type="button"
+              onClick={() => setActiveBadge(SPECIAL_BADGES.jesucristo)}
+              className="rounded-2xl p-2.5 border-2 text-center flex flex-col items-center relative transition-all active:scale-95 group text-left w-full cursor-pointer hover:shadow-md"
+              style={{
+                background: week4Done ? '#fefce8' : '#fffdf0',
+                borderColor: week4Done ? '#facc15' : '#fed7aa',
+              }}
             >
-              <div className="w-9 h-9 rounded-xl bg-[#fff3b0] flex items-center justify-center text-base mb-1 shadow-sm">
-                👑
-              </div>
-              <p className="font-display font-bold text-xs text-[#78350f]">
+              {(() => {
+                const img = prizeCardsMap?.[4];
+                const canSee = week4Done || isInstructor;
+                if (canSee && img) {
+                  return (
+                    <div className="w-full h-32 rounded-xl overflow-hidden shadow-md border-2 border-amber-400 bg-slate-900 mb-2 relative flex items-center justify-center">
+                      <img src={img} alt="Jesucristo" className="w-full h-full object-cover" />
+                      <div className="absolute top-1.5 right-1.5 bg-black/60 rounded-md px-1.5 py-0.5 text-[9px] text-white font-bold backdrop-blur-xs">
+                        {week4Done ? '👑 Ganada' : '📸 Maestro'}
+                      </div>
+                    </div>
+                  );
+                }
+                if (week4Done) {
+                  return (
+                    <div className="w-full h-32 rounded-xl border-2 border-amber-400 bg-gradient-to-b from-amber-100 to-yellow-200 flex flex-col items-center justify-center p-2 mb-2 shadow-sm text-center">
+                      <span className="text-3xl mb-1">👑</span>
+                      <span className="text-[11px] font-bold text-amber-950 uppercase font-display leading-tight">Jesucristo</span>
+                      <span className="text-[9px] text-amber-800 font-bold mt-1 bg-amber-300/80 px-2 py-0.5 rounded-full">¡Carta Dorada!</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 flex flex-col items-center justify-center p-2 mb-2 text-center text-amber-700/60">
+                    <Lock className="w-6 h-6 mb-1 text-amber-600/60" />
+                    <span className="text-[10px] font-bold text-amber-800 uppercase leading-tight font-display">Jesucristo</span>
+                    <span className="text-[9px] text-amber-700 mt-1">30 días de racha</span>
+                  </div>
+                );
+              })()}
+
+              <p className="font-display font-bold text-xs text-[#78350f] leading-tight">
                 Jesucristo
               </p>
               <p className="text-[10px] text-[#b45309] font-bold">
                 Carta Dorada · 30 días
               </p>
-            </div>
+
+              <span
+                className="mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
+                style={{
+                  background: week4Done ? '#ffc800' : '#fef3c7',
+                  color: week4Done ? '#1e293b' : '#92400e',
+                }}
+              >
+                {week4Done ? '¡Desbloqueada!' : isInstructor ? 'Cargar / Ver' : 'Bloqueada 🔒'}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -276,6 +509,19 @@ export const CardsGalleryModal: React.FC<CardsGalleryModalProps> = ({
         </div>
 
       </div>
+
+      {/* ── MODAL DE CARTA PREMIO (Visualización / Carga de Instructor) ── */}
+      {activeBadge && (
+        <PrizeCardModal
+          isOpen={Boolean(activeBadge)}
+          onClose={() => setActiveBadge(null)}
+          badge={activeBadge}
+          student={student}
+          prizeCardsMap={prizeCardsMap}
+          onCardUpdated={handleCardUpdated}
+          onCardDeleted={handleCardDeleted}
+        />
+      )}
     </div>
   );
 };

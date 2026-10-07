@@ -439,7 +439,7 @@ export const InstructorRankingView: React.FC<InstructorRankingViewProps> = ({
                           </span>
 
                           <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-display font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
-                            {getUserInitials(item.student.name)}
+                            {getUserInitials(item.student)}
                           </div>
 
                           <div className="min-w-0 flex-1">

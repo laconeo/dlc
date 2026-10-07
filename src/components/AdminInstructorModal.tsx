@@ -138,6 +138,8 @@ export const AdminInstructorModal: React.FC<AdminInstructorModalProps> = ({
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editWard, setEditWard] = useState('');
+  const [editClass, setEditClass] = useState('Seminario - Antiguo Testamento');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [panelTab, setPanelTab] = useState<'roster' | 'ranking'>('roster');
   const [activePrizeBadge, setActivePrizeBadge] = useState<SpecialBadge | null>(null);
   const [prizeCardsMap, setPrizeCardsMap] = useState<Record<number, string>>(() => getStoredPrizeCards());

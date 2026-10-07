@@ -497,16 +497,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 
   // URL de producción oficial para la app en GitHub Pages
-  const PRODUCTION_URL = (import.meta.env.VITE_SITE_URL as string) || 'https://laconeo.github.io/dlc/';
+  const redirectUrl =
+    (typeof import.meta !== 'undefined' && (import.meta.env.VITE_SITE_URL as string)) ||
+    'https://laconeo.github.io/dlc/';
 
-  // Si estamos en localhost o 127.0.0.1, redirigir siempre a producción para que el enlace del correo no apunte a local
-  const isLocalhost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-  const redirectUrl = isLocalhost
-    ? PRODUCTION_URL
-    : `${window.location.origin}${window.location.pathname.endsWith('/') ? window.location.pathname : `${window.location.pathname}/`}`;
+  console.log('[Auth] Solicitando restablecimiento de contraseña para:', cleanEmail, 'con redirectTo:', redirectUrl);
 
   const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
     redirectTo: redirectUrl,

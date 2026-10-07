@@ -41,6 +41,78 @@ export function getLocalSuperuserEmails(): string[] {
   }
 }
 
+export function syncLocalSuperuser(email: string, isSuper: boolean): void {
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    if (!cleanEmail) return;
+    const list = getLocalSuperuserEmails();
+    let updated: string[];
+    if (isSuper) {
+      updated = Array.from(new Set([...list, cleanEmail]));
+    } else {
+      updated = list.filter((e) => e !== cleanEmail);
+      if (!updated.includes(SUPERADMIN_EMAIL)) updated.push(SUPERADMIN_EMAIL);
+    }
+    localStorage.setItem(LOCAL_SUPERUSERS_KEY, JSON.stringify(updated));
+  } catch {}
+}
+
+export async function fetchSuperuserEmails(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.from('superusers').select('email, user_id');
+    if (!error && data && data.length > 0) {
+      const fromDb = data.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean);
+      const merged = Array.from(new Set([SUPERADMIN_EMAIL, ...fromDb]));
+      try {
+        localStorage.setItem(LOCAL_SUPERUSERS_KEY, JSON.stringify(merged));
+      } catch {}
+      return merged;
+    }
+  } catch (err) {
+    console.warn('Error fetching superusers from Supabase:', err);
+  }
+  return getLocalSuperuserEmails();
+}
+
+export async function checkIsUserSuperuser(userId?: string, email?: string): Promise<boolean> {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  if (cleanEmail === SUPERADMIN_EMAIL) return true;
+
+  try {
+    // 1. Verificar por ID de usuario en tabla superusers
+    if (userId) {
+      const { data, error } = await supabase
+        .from('superusers')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!error && data) {
+        if (cleanEmail) syncLocalSuperuser(cleanEmail, true);
+        return true;
+      }
+    }
+
+    // 2. Verificar por correo electrónico en tabla superusers
+    if (cleanEmail) {
+      const { data, error } = await supabase
+        .from('superusers')
+        .select('user_id')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+      if (!error && data) {
+        syncLocalSuperuser(cleanEmail, true);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Error checking superuser in DB:', err);
+  }
+
+  // 3. Fallback a lista en memoria / localStorage
+  const localList = getLocalSuperuserEmails();
+  return cleanEmail ? localList.includes(cleanEmail) : false;
+}
+
 export function getLocalStudent(): Student | null {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -272,14 +344,22 @@ export async function getCurrentSessionStudent(): Promise<Student | null> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
-      const { data, error } = await supabase
-        .from('students_full')
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      const cleanEmail = (session.user.email || '').toLowerCase().trim();
+      const [studentRes, isSuper] = await Promise.all([
+        supabase
+          .from('students_full')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle(),
+        checkIsUserSuperuser(session.user.id, cleanEmail),
+      ]);
 
-      if (data && !error) {
-        const student = rowToStudent(data);
+      if (studentRes.data && !studentRes.error) {
+        const student = rowToStudent(studentRes.data, isSuper ? [cleanEmail] : []);
+        if (isSuper) {
+          student.isSuperuser = true;
+          student.role = 'instructor';
+        }
         saveLocalStudent(student);
         return student;
       }
@@ -288,6 +368,10 @@ export async function getCurrentSessionStudent(): Promise<Student | null> {
     console.warn('Could not get session from Supabase:', err);
   }
   return null;
+}
+
+export async function refreshCurrentStudent(): Promise<Student | null> {
+  return await getCurrentSessionStudent();
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -319,15 +403,22 @@ export async function loginStudent(email: string, password?: string): Promise<St
 
     const userId = authData.user.id;
 
-    // 2. Cargar perfil completo desde la vista students_full
-    const { data, error } = await supabase
-      .from('students_full')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    // 2. Cargar perfil completo desde la vista students_full y verificar superuser en Supabase
+    const [profileRes, isSuper] = await Promise.all([
+      supabase
+        .from('students_full')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle(),
+      checkIsUserSuperuser(userId, cleanEmail),
+    ]);
 
-    if (data && !error) {
-      const student = rowToStudent(data);
+    if (profileRes.data && !profileRes.error) {
+      const student = rowToStudent(profileRes.data, isSuper ? [cleanEmail] : []);
+      if (isSuper) {
+        student.isSuperuser = true;
+        student.role = 'instructor';
+      }
       saveLocalStudent(student);
       return student;
     }
@@ -336,7 +427,7 @@ export async function loginStudent(email: string, password?: string): Promise<St
     const meta = authData.user.user_metadata || {};
     const firstName = meta.first_name || cleanEmail.split('@')[0];
     const lastName = meta.last_name || 'Seminario';
-    const role: UserRole = cleanEmail === SUPERADMIN_EMAIL ? 'instructor' : (meta.role || 'alumno');
+    const role: UserRole = isSuper ? 'instructor' : (cleanEmail === SUPERADMIN_EMAIL ? 'instructor' : (meta.role || 'alumno'));
 
     const { data: newRow } = await supabase
       .from('students')
@@ -406,7 +497,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 
   // URL de producción oficial para la app en GitHub Pages
-  const PRODUCTION_URL = 'https://laconeo.github.io/dlc/';
+  const PRODUCTION_URL = (import.meta.env.VITE_SITE_URL as string) || 'https://laconeo.github.io/dlc/';
 
   // Si estamos en localhost o 127.0.0.1, redirigir siempre a producción para que el enlace del correo no apunte a local
   const isLocalhost =
@@ -833,19 +924,7 @@ export async function fetchInstructorData(): Promise<{ students: Student[]; stat
     if (error) throw new Error(error.message);
 
     // 2. Obtener lista de superusuarios registrados (Supabase + localStorage)
-    let superuserEmails = getLocalSuperuserEmails();
-    try {
-      const { data: superRows } = await supabase.from('superusers').select('email, user_id');
-      if (superRows && superRows.length > 0) {
-        const fromDb = superRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean);
-        superuserEmails = Array.from(new Set([...superuserEmails, ...fromDb]));
-        try {
-          localStorage.setItem(LOCAL_SUPERUSERS_KEY, JSON.stringify(superuserEmails));
-        } catch {}
-      }
-    } catch {
-      // Fallback local silencioso si la tabla aún no existe en Supabase
-    }
+    const superuserEmails = await fetchSuperuserEmails();
 
     // 3. Filtrar estrictamente solo estudiantes reales (descartar IDs o correos de prueba)
     const rawStudents = (rows ?? []).map((r) => rowToStudent(r, superuserEmails));

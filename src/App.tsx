@@ -10,7 +10,7 @@ import { MinisteringGuideModal } from './components/MinisteringGuideModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { DayReading, Student, SpecialBadge } from './types';
-import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent, saveStudentNote } from './utils/api';
+import { getLocalStudent, clearLocalStudent, toggleStudentDay, loginStudent, logoutStudent, getCurrentSessionStudent, refreshCurrentStudent, saveStudentNote } from './utils/api';
 import { supabase } from './utils/supabase';
 import { SPECIAL_BADGES } from './data/readings';
 
@@ -85,6 +85,89 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // ── AUTO-REFRESH & SYNC EN SEGUNDO PLANO ──
+  // Mantiene los roles, permisos de superadmin y estado actualizados periódicamente (cada 60s),
+  // al volver a la pestaña/ventana (focus / visibilitychange), o al recibir cambios de Supabase en tiempo real.
+  useEffect(() => {
+    if (!student?.id) return;
+
+    let isMounted = true;
+
+    const silentSync = async () => {
+      try {
+        const fresh = await refreshCurrentStudent();
+        if (!isMounted || !fresh) return;
+
+        setStudent((prev) => {
+          if (!prev) return fresh;
+          // Verificar si hubo cambios en rol, permisos de superadmin, racha, días leídos o barrio
+          const hasRoleChange = prev.role !== fresh.role || prev.isSuperuser !== fresh.isSuperuser;
+          const hasStreakChange = prev.currentStreak !== fresh.currentStreak;
+          const hasDaysChange =
+            (prev.completedDays || []).length !== (fresh.completedDays || []).length;
+          const hasWardChange = prev.ward !== fresh.ward;
+          const hasNameChange = prev.name !== fresh.name;
+
+          if (hasRoleChange || hasStreakChange || hasDaysChange || hasWardChange || hasNameChange) {
+            return fresh;
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.warn('Silent sync error:', err);
+      }
+    };
+
+    // 1. Polling periódico cada 60 segundos
+    const intervalId = setInterval(silentSync, 60000);
+
+    // 2. Refresco inmediato al recuperar el foco o visibilidad de la pestaña
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        silentSync();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    // 3. Suscripción en tiempo real a Supabase (tabla superusers y students)
+    const channel = supabase
+      .channel(`sync-student-${student.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'superusers',
+        },
+        () => {
+          silentSync();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'students',
+          filter: `id=eq.${student.id}`,
+        },
+        () => {
+          silentSync();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [student?.id]);
 
   // Handlers
   const handleOpenReading = (reading: DayReading) => {

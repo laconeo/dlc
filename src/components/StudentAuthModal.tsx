@@ -565,6 +565,13 @@ export const StudentAuthModal: React.FC<StudentAuthModalProps> = ({
               </button>
             </p>
 
+            {/* Número de versión en Login */}
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.05em' }}>
+                v{__APP_VERSION__}
+              </span>
+            </div>
+
             {/* Continue as existing user */}
             {onClose && currentStudent && (
               <div style={{ textAlign: 'center', marginTop: 2 }}>

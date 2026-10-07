@@ -7,36 +7,61 @@
 create or replace function public.recalculate_student_stats(p_student_id uuid)
 returns void language plpgsql security definer as $$
 declare
-  v_completed  smallint[];
-  v_streak     int := 0;
-  v_day        int;
-  v_highest    int;
+  v_completed      smallint[];
+  v_streak         int := 0;
+  v_highest        int := 0;
+  v_max_historical int := 0;
+  v_current_block  int := 0;
+  v_prev_day       int := null;
+  v_last_day       int;
+  v_check_day      int;
+  v_day            smallint;
 begin
   -- Sorted completed days
-  select array_agg(day order by day)
+  select coalesce(array_agg(day order by day), '{}')
   into   v_completed
   from   public.student_completed_days
   where  student_id = p_student_id;
 
-  v_completed := coalesce(v_completed, '{}');
+  -- 1. Calcular racha actual midiendo los últimos días consecutivos completados
+  if array_length(v_completed, 1) is not null and array_length(v_completed, 1) > 0 then
+    -- Último día leído
+    v_last_day := v_completed[array_length(v_completed, 1)];
+    v_check_day := v_last_day;
 
-  -- Consecutive streak from day 1
-  for v_day in 1..31 loop
-    if v_day = any(v_completed) then
+    -- Contar consecutivamente hacia atrás desde el último día completado
+    while v_check_day = any(v_completed) loop
       v_streak := v_streak + 1;
-    else
-      exit;
-    end if;
-  end loop;
+      v_check_day := v_check_day - 1;
+    end loop;
+
+    -- 2. Calcular racha máxima histórica dentro de los días completados
+    foreach v_day in array v_completed loop
+      if v_prev_day is null or v_day = v_prev_day + 1 then
+        v_current_block := v_current_block + 1;
+      else
+        v_current_block := 1;
+      end if;
+      if v_current_block > v_max_historical then
+        v_max_historical := v_current_block;
+      end if;
+      v_prev_day := v_day;
+    end loop;
+  else
+    v_streak := 0;
+    v_max_historical := 0;
+  end if;
 
   -- Preserve highest streak
-  select highest_streak into v_highest
+  select coalesce(highest_streak, 0) into v_highest
   from   public.students
   where  id = p_student_id;
 
+  v_highest := greatest(coalesce(v_highest, 0), v_max_historical, v_streak);
+
   update public.students set
     current_streak = v_streak,
-    highest_streak = greatest(coalesce(v_highest, 0), v_streak),
+    highest_streak = v_highest,
     updated_at     = now()
   where id = p_student_id;
 

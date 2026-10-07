@@ -138,6 +138,73 @@ export function clearLocalStudent(): void {
   }
 }
 
+// ── STREAK CALCULATION ────────────────────────────────────────────────────────
+
+/**
+ * Calcula la racha actual midiendo los últimos días consecutivos completados.
+ * Si leyó 3, luego no leyó 1, y luego leyó los últimos 2 (ej: [1, 2, 3, 5, 6]),
+ * el último día completado es 6. Contando hacia atrás consecutivamente (6 y 5),
+ * la racha actual son 2 días.
+ */
+export function calculateCurrentStreak(completedDays: number[]): number {
+  if (!completedDays || completedDays.length === 0) return 0;
+
+  const validDays = completedDays
+    .map(Number)
+    .filter((d) => !isNaN(d) && d > 0);
+
+  if (validDays.length === 0) return 0;
+
+  const daySet = new Set(validDays);
+  const sorted = Array.from(daySet).sort((a, b) => a - b);
+  const lastCompletedDay = sorted[sorted.length - 1];
+
+  let streak = 0;
+  let cursor = lastCompletedDay;
+
+  // Contar consecutivamente hacia atrás desde el último día completado
+  while (daySet.has(cursor)) {
+    streak++;
+    cursor--;
+  }
+
+  return streak;
+}
+
+/**
+ * Calcula la racha máxima consecutiva histórica dentro de los días completados.
+ */
+export function calculateHighestStreak(completedDays: number[], previousHighest: number = 0): number {
+  if (!completedDays || completedDays.length === 0) return previousHighest || 0;
+
+  const validDays = completedDays
+    .map(Number)
+    .filter((d) => !isNaN(d) && d > 0);
+
+  if (validDays.length === 0) return previousHighest || 0;
+
+  const daySet = new Set(validDays);
+  const sorted = Array.from(daySet).sort((a, b) => a - b);
+
+  let maxStreak = 0;
+  let currentBlock = 0;
+  let prevDay: number | null = null;
+
+  for (const day of sorted) {
+    if (prevDay === null || day === prevDay + 1) {
+      currentBlock++;
+    } else {
+      currentBlock = 1;
+    }
+    if (currentBlock > maxStreak) {
+      maxStreak = currentBlock;
+    }
+    prevDay = day;
+  }
+
+  return Math.max(previousHighest || 0, maxStreak);
+}
+
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
 /**
@@ -148,6 +215,10 @@ function rowToStudent(row: any, superuserEmails: string[] = []): Student {
   const superList = superuserEmails.length > 0 ? superuserEmails : getLocalSuperuserEmails();
   const isSuper = cleanEmail === SUPERADMIN_EMAIL || superList.includes(cleanEmail) || Boolean(row.is_superuser);
   const role: UserRole = isSuper ? 'instructor' : (row.role === 'instructor' ? 'instructor' : 'alumno');
+
+  const completedDays = (row.completed_days ?? []).map(Number);
+  const currentStreak = calculateCurrentStreak(completedDays);
+  const highestStreak = calculateHighestStreak(completedDays, row.highest_streak ?? 0);
 
   return {
     id: row.id,
@@ -160,9 +231,9 @@ function rowToStudent(row: any, superuserEmails: string[] = []): Student {
     ward: row.ward ?? '',
     seminaryClass: row.seminary_class ?? 'Seminario - Antiguo Testamento',
     avatarSeed: row.avatar_seed ?? row.first_name,
-    completedDays: (row.completed_days ?? []).map(Number),
-    currentStreak: row.current_streak ?? 0,
-    highestStreak: row.highest_streak ?? 0,
+    completedDays,
+    currentStreak,
+    highestStreak,
     unlockedBadgeIds: row.unlocked_badge_ids ?? [],
     lastCompletedDate: row.last_completed_date ?? undefined,
     notes: row.notes ?? {},
@@ -644,29 +715,37 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
         .upsert({ student_id: studentId, day, note }, { onConflict: 'student_id,day' });
     }
 
-    // 3. Recalcular estadísticas y badges via función SQL
-    const { error: rpcError } = await supabase.rpc('recalculate_student_stats', { p_student_id: studentId });
+    // 3. Recalcular racha con la regla de últimos días consecutivos y guardar en students
+    const { data: daysRows } = await supabase
+      .from('student_completed_days')
+      .select('day')
+      .eq('student_id', studentId)
+      .order('day');
 
-    // Si el RPC falla, calcular racha localmente y actualizar directamente en students
-    if (rpcError) {
-      console.warn('RPC recalculate_student_stats failed, computing locally:', rpcError.message);
-      // Leer días completados actuales
-      const { data: daysRows } = await supabase
-        .from('student_completed_days')
-        .select('day')
-        .eq('student_id', studentId)
-        .order('day');
-      const completedDays = (daysRows || []).map((r: any) => Number(r.day)).sort((a, b) => a - b);
-      let streak = 0;
-      for (let d = 1; d <= 31; d++) {
-        if (completedDays.includes(d)) streak++;
-        else break;
-      }
-      await supabase
-        .from('students')
-        .update({ current_streak: streak, highest_streak: streak, updated_at: new Date().toISOString() })
-        .eq('id', studentId);
-    }
+    const updatedDays = (daysRows || []).map((r: any) => Number(r.day));
+    const newCurrentStreak = calculateCurrentStreak(updatedDays);
+
+    const { data: currentStudentRow } = await supabase
+      .from('students')
+      .select('highest_streak')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    const newHighestStreak = calculateHighestStreak(updatedDays, currentStudentRow?.highest_streak ?? 0);
+
+    await supabase
+      .from('students')
+      .update({
+        current_streak: newCurrentStreak,
+        highest_streak: newHighestStreak,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', studentId);
+
+    // Intentar también RPC para insignias si está disponible
+    try {
+      await supabase.rpc('recalculate_student_stats', { p_student_id: studentId });
+    } catch {}
 
     // 4. Leer el perfil actualizado
     const { data, error } = await supabase
@@ -690,7 +769,7 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
   } catch (err) {
     console.warn('Supabase toggleDay failed, using local fallback:', err);
 
-    // Fallback local (mismo algoritmo que antes)
+    // Fallback local
     const local = getLocalStudent();
     if (local && local.id === studentId) {
       const idx = local.completedDays.indexOf(day);
@@ -702,14 +781,9 @@ export async function toggleStudentDay(studentId: string, day: number, note?: st
       }
       local.completedDays.sort((a, b) => a - b);
 
-      // Racha
-      let streak = 0;
-      for (let d = 1; d <= 31; d++) {
-        if (local.completedDays.includes(d)) streak++;
-        else break;
-      }
-      local.currentStreak = streak;
-      if (streak > local.highestStreak) local.highestStreak = streak;
+      // Racha por últimos días consecutivos
+      local.currentStreak = calculateCurrentStreak(local.completedDays);
+      local.highestStreak = calculateHighestStreak(local.completedDays, local.highestStreak);
 
       // Badges
       const badges: string[] = [];

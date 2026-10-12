@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS public.prize_cards (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Permisos a nivel de tabla (necesarios para que RLS funcione)
+GRANT ALL ON public.prize_cards TO authenticated;
+GRANT ALL ON public.prize_cards TO anon;
+GRANT ALL ON public.prize_cards TO service_role;
+
 -- Habilitar RLS
 ALTER TABLE public.prize_cards ENABLE ROW LEVEL SECURITY;
 

@@ -102,46 +102,79 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
 
   // Sincronizar remotamente y verificar estado de la nube
   useEffect(() => {
-    checkDailyCardsCloudStatus().then((status) => {
+    let cancelled = false;
+
+    const initCards = async () => {
+      // 1. Primero, descargar cartas remotas para mostrar inmediatamente
+      const remote = await fetchRemoteDailyCards();
+      if (cancelled) return;
+      setCardsMap(remote);
+
+      // 2. Verificar si la nube está disponible
+      const status = await checkDailyCardsCloudStatus();
+      if (cancelled) return;
       setCloudStatus(status);
+
+      // 3. Si la nube está disponible, sincronizar cartas locales hacia la nube
       if (status.available) {
-        // Si la tabla existe en la nube, sincronizar las cartas que estén solo en local
-        syncLocalCardsToCloud().then(({ syncedCount }) => {
-          if (syncedCount > 0) {
-            fetchRemoteDailyCards().then(setCardsMap);
-          }
-        });
+        const { syncedCount } = await syncLocalCardsToCloud();
+        if (cancelled) return;
+
+        // 4. Si se sincronizó algo nuevo, volver a descargar para tener el mapa actualizado
+        if (syncedCount > 0) {
+          const updated = await fetchRemoteDailyCards();
+          if (cancelled) return;
+          setCardsMap(updated);
+        }
       }
+    };
+
+    initCards().catch((err) => {
+      console.error('[DLC] Error al inicializar cartas:', err);
     });
 
-    fetchRemoteDailyCards().then((remote) => {
-      setCardsMap(remote);
-    });
+    return () => { cancelled = true; };
   }, []);
 
   const handleManualSync = async () => {
     setSyncingCloud(true);
     try {
+      // 1. Primero descargar lo que hay en la nube (para no perder nada)
+      console.log('[DLC] Sincronización manual iniciada...');
+      const beforeSync = await fetchRemoteDailyCards();
+      setCardsMap(beforeSync);
+
+      // 2. Subir cartas locales que no estén en la nube
       const { syncedCount, error } = await syncLocalCardsToCloud();
-      const updated = await fetchRemoteDailyCards();
-      setCardsMap(updated);
+
+      // 3. Volver a descargar para obtener el estado final completo
+      const afterSync = await fetchRemoteDailyCards();
+      setCardsMap(afterSync);
+
       const status = await checkDailyCardsCloudStatus();
       setCloudStatus(status);
 
+      const totalRemote = status.count || 0;
+      const totalLocal = Object.keys(afterSync).filter((k) => {
+        const val = afterSync[Number(k)];
+        return val && !val.startsWith('/') && !val.startsWith(import.meta.env.BASE_URL || '/__none__');
+      }).length;
+
       if (error) {
         setFeedbackMsg({
-          text: `Error al subir a la nube: ${error}. Asegúrate de ejecutar supabase/daily_cards.sql en Supabase.`,
+          text: `⚠️ Error al sincronizar: ${error}. Verifica que hayas ejecutado supabase/daily_cards.sql (con los GRANT) en Supabase SQL Editor.`,
           isError: true,
         });
       } else {
         setFeedbackMsg({
-          text: `¡${syncedCount > 0 ? `${syncedCount} cartas sincronizadas` : 'Cartas sincronizadas'} con éxito en la nube!`,
+          text: `✅ Sincronización completada. ${syncedCount > 0 ? `${syncedCount} nuevas subidas.` : ''} ${totalRemote} cartas en la nube, ${totalLocal} en total.`,
         });
       }
-      setTimeout(() => setFeedbackMsg(null), 5000);
+      setTimeout(() => setFeedbackMsg(null), 6000);
     } catch (e: any) {
+      console.error('[DLC] Error de sincronización:', e);
       setFeedbackMsg({
-        text: `Error de sincronización: ${e?.message || 'Error desconocido'}`,
+        text: `❌ Error de sincronización: ${e?.message || 'Error desconocido'}`,
         isError: true,
       });
       setTimeout(() => setFeedbackMsg(null), 5000);
@@ -176,31 +209,54 @@ export const DailyCardsModal: React.FC<DailyCardsModalProps> = ({
     setUploadingDay(day);
     try {
       const compressedDataUrl = await compressImage(file);
+
+      console.log(`[DLC] Subiendo carta del día ${day}. Tamaño archivo original: ${Math.round(file.size / 1024)}KB, comprimido Base64: ${Math.round(compressedDataUrl.length / 1024)}KB`);
+
       const saveRes = await saveDailyCard(day, compressedDataUrl, characterName);
 
-      setCardsMap((prev) => ({
-        ...prev,
-        [day]: compressedDataUrl,
-      }));
+      // Si se guardó en la nube o al menos localmente, actualizar el estado visual
+      if (saveRes.success) {
+        setCardsMap((prev) => ({
+          ...prev,
+          [day]: compressedDataUrl,
+        }));
+      }
+
+      // Si falló la primera vez en la nube, intentar una vez más
+      let finalResult = saveRes;
+      if (!saveRes.cloudSynced && saveRes.success) {
+        console.log('[DLC] Primer intento de sincronización falló, reintentando...');
+        await new Promise((r) => setTimeout(r, 1000)); // Esperar 1 segundo
+        finalResult = await saveDailyCard(day, compressedDataUrl, characterName);
+      }
 
       // Actualizar el estado de la nube
       const status = await checkDailyCardsCloudStatus();
       setCloudStatus(status);
 
-      if (saveRes.cloudSynced) {
+      if (finalResult.cloudSynced) {
         setFeedbackMsg({
-          text: `¡Carta del Día ${day} (${characterName}) subida a la nube! Visible para todos los alumnos que lean este día.`,
+          text: `✅ ¡Carta del Día ${day} (${characterName}) guardada en la nube! Visible para todos los alumnos.`,
+        });
+      } else if (finalResult.success) {
+        setFeedbackMsg({
+          text: `⚠️ Guardada solo en este dispositivo. Error: ${finalResult.error || 'La tabla daily_cards no está accesible. Ejecuta supabase/daily_cards.sql en Supabase SQL Editor.'}`,
+          isError: true,
         });
       } else {
         setFeedbackMsg({
-          text: `⚠️ Guardada solo en este dispositivo. La tabla en Supabase no respondió (${saveRes.error || 'ejecuta supabase/daily_cards.sql'}).`,
+          text: `❌ No se pudo guardar la carta. Error: ${finalResult.error || 'localStorage lleno y Supabase no disponible.'}`,
           isError: true,
         });
       }
-      setTimeout(() => setFeedbackMsg(null), 6000);
+      setTimeout(() => setFeedbackMsg(null), 8000);
     } catch (err) {
       console.error('Error al procesar la imagen:', err);
-      alert('Hubo un error al procesar el archivo de imagen.');
+      setFeedbackMsg({
+        text: `❌ Error al procesar la imagen: ${err instanceof Error ? err.message : 'Error desconocido'}`,
+        isError: true,
+      });
+      setTimeout(() => setFeedbackMsg(null), 6000);
     } finally {
       setUploadingDay(null);
     }

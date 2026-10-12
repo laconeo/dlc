@@ -11,6 +11,15 @@ CREATE TABLE IF NOT EXISTS public.daily_cards (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ════════════════════════════════════════════════════════════
+-- PERMISOS A NIVEL DE TABLA (GRANT)
+-- Sin estos GRANTs, RLS no es suficiente: los roles no pueden
+-- acceder a la tabla aunque las políticas lo permitan.
+-- ════════════════════════════════════════════════════════════
+GRANT ALL ON public.daily_cards TO authenticated;
+GRANT ALL ON public.daily_cards TO anon;
+GRANT ALL ON public.daily_cards TO service_role;
+
 -- Habilitar RLS
 ALTER TABLE public.daily_cards ENABLE ROW LEVEL SECURITY;
 
@@ -30,3 +39,17 @@ CREATE POLICY "daily_cards: modify"
   USING (true)
   WITH CHECK (true);
 
+-- ════════════════════════════════════════════════════════════
+-- VERIFICACIÓN: Comprueba que la tabla y permisos estén correctos
+-- ════════════════════════════════════════════════════════════
+
+-- Insertar un registro de prueba para verificar que INSERT funciona
+INSERT INTO public.daily_cards (day, image_url, character)
+VALUES (999, 'test_image_url', 'Test')
+ON CONFLICT (day) DO UPDATE SET image_url = 'test_image_url', updated_at = NOW();
+
+-- Verificar que el SELECT funciona
+SELECT * FROM public.daily_cards WHERE day = 999;
+
+-- Limpiar el registro de prueba
+DELETE FROM public.daily_cards WHERE day = 999;
